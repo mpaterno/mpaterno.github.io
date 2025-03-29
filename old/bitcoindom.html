@@ -1,0 +1,1256 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Crypto Charts</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .chart-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        .line {
+            fill: none;
+            stroke-width: 2;
+        }
+        .line.bitcoin { stroke: #f7931a; }  /* Bitcoin orange */
+        .line.pepe { stroke: #00b894; }     /* PEPE green */
+        .line.bonk { stroke: #e84393; }     /* BONK pink */
+        .line.doge { stroke: #ffd32a; }     /* DOGE yellow */
+        .line.floki { stroke: #0984e3; }    /* FLOKI blue */
+        .line.shib { stroke: #e17055; }     /* SHIB orange-red */
+        .axis-label {
+            font-size: 12px;
+        }
+        .title {
+            font-size: 18px;
+            font-weight: bold;
+            text-anchor: middle;
+        }
+        .tooltip {
+            position: absolute;
+            padding: 8px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            border-radius: 4px;
+            font-size: 12px;
+            pointer-events: none;
+        }
+        /* Correlation heatmap styles */
+        .correlation-bar {
+            transition: all 0.5s ease-in-out;
+        }
+        .correlation-label {
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .correlation-value {
+            font-size: 12px;
+            text-anchor: end;
+        }
+        .correlation-legend {
+            font-size: 10px;
+        }
+        .correlation-controls {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 10px;
+            gap: 10px;
+        }
+        .correlation-button {
+            background: #f0f0f0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 6px 12px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .correlation-button:hover {
+            background: #e0e0e0;
+        }
+        .correlation-slider {
+            width: 80%;
+            margin: 10px auto;
+        }
+        .correlation-period {
+            display: flex;
+            justify-content: space-between;
+            width: 80%;
+            margin: 5px auto;
+            font-size: 12px;
+            color: #666;
+        }
+        .correlation-period span.active {
+            font-weight: bold;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="chart-container" id="bitcoin-chart"></div>
+    <div class="chart-container" id="combined-memecoin-chart"></div>
+    <div class="chart-container" id="filtered-memecoin-chart"></div>
+    <div class="chart-container" id="correlation-heatmap">
+        <h3 id="correlation-title" style="text-align: center; margin-bottom: 20px;">Bitcoin Dominance Correlation</h3>
+        <div id="correlation-chart"></div>
+        <div class="correlation-controls">
+            <button id="reset-button" class="correlation-button">⏮ Reset</button>
+            <button id="play-button" class="correlation-button">▶ Play</button>
+        </div>
+        <input type="range" id="period-slider" class="correlation-slider" min="0" value="0" step="1">
+        <div id="period-labels" class="correlation-period"></div>
+    </div>
+    <!-- <div class="chart-container" id="pepe-chart"></div>
+    <div class="chart-container" id="bonk-chart"></div>
+    <div class="chart-container" id="doge-chart"></div>
+    <div class="chart-container" id="floki-chart"></div>
+    <div class="chart-container" id="shib-chart"></div> -->
+
+    <script src="createPriceChart.js"></script>
+    <script>
+        // Set the dimensions and margins of the graphs
+        const margin = {top: 40, right: 30, bottom: 50, left: 100};
+        const width = 960 - margin.left - margin.right;
+        const height = 500 - margin.top - margin.bottom;
+
+        // Create tooltip div
+        const tooltip = d3.select("body").append("div")
+            .attr("class", "tooltip")
+            .style("opacity", 0);
+
+        // Function to create SVG container
+        function createSvg(containerId) {
+            return d3.select(containerId)
+                .append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+        }
+
+        // Create SVG containers for all charts
+        const svgBitcoin = createSvg("#bitcoin-chart");
+        const svgCombined = createSvg("#combined-memecoin-chart");
+        const svgFiltered = createSvg("#filtered-memecoin-chart");
+        const svgPepe = createSvg("#pepe-chart");
+        const svgBonk = createSvg("#bonk-chart");
+        const svgDoge = createSvg("#doge-chart");
+        const svgFloki = createSvg("#floki-chart");
+        const svgShib = createSvg("#shib-chart");
+
+        // Load Bitcoin, Ethereum, and Other dominance data
+        d3.json("data.json").then(function(jsonData) {
+            const data = jsonData.data.points.map(d => ({
+                date: new Date(parseInt(d.timestamp) * 1000),
+                bitcoin: d.dominance[0],
+                ethereum: d.dominance[1], // Assuming Ethereum is the second entry
+                other: 100 - d.dominance[0] - d.dominance[1] // Calculating other dominance
+            }));
+
+            const x = d3.scaleTime()
+                .domain(d3.extent(data, d => d.date))
+                .range([0, width]);
+
+            const y = d3.scaleLinear()
+                .domain([0, 100])
+                .range([height, 0]);
+
+            svgBitcoin.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(x));
+
+            svgBitcoin.append("g")
+                .call(d3.axisLeft(y));
+
+            // Define the area generators
+            const areaBitcoin = d3.area()
+                .x(d => x(d.date))
+                .y0(height)
+                .y1(d => y(d.bitcoin));
+
+            const areaEthereum = d3.area()
+                .x(d => x(d.date))
+                .y0(d => y(d.bitcoin))
+                .y1(d => y(d.bitcoin + d.ethereum));
+
+            const areaOther = d3.area()
+                .x(d => x(d.date))
+                .y0(d => y(d.bitcoin + d.ethereum))
+                .y1(d => y(100));
+
+            // Add the areas
+            svgBitcoin.append("path")
+                .datum(data)
+                .attr("class", "area bitcoin")
+                .attr("d", areaBitcoin)
+                .style("fill", "#f7931a");
+
+            svgBitcoin.append("path")
+                .datum(data)
+                .attr("class", "area ethereum")
+                .attr("d", areaEthereum)
+                .style("fill", "#627eea"); // Ethereum blue
+
+            svgBitcoin.append("path")
+                .datum(data)
+                .attr("class", "area other")
+                .attr("d", areaOther)
+                .style("fill", "#cccccc"); // Grey for other
+
+            svgBitcoin.append("text")
+                .attr("class", "axis-label")
+                .attr("text-anchor", "middle")
+                .attr("x", width / 2)
+                .attr("y", height + margin.bottom - 5)
+                .text("Date");
+
+            svgBitcoin.append("text")
+                .attr("class", "axis-label")
+                .attr("text-anchor", "middle")
+                .attr("transform", "rotate(-90)")
+                .attr("y", -margin.left + 20)
+                .attr("x", -height / 2)
+                .text("Market Dominance (%)");
+
+            svgBitcoin.append("text")
+                .attr("class", "title")
+                .attr("x", width / 2)
+                .attr("y", -margin.top / 2)
+                .text("Cryptocurrency Market Dominance Over Time");
+
+            // Add legend
+            const legend = svgBitcoin.append("g")
+                .attr("class", "legend")
+                .attr("transform", `translate(${width - 150}, 20)`);
+
+            const legendData = [
+                { name: "Bitcoin", color: "#f7931a" },
+                { name: "Ethereum", color: "#627eea" },
+                { name: "Other", color: "#cccccc" }
+            ];
+
+            legendData.forEach((item, i) => {
+                const legendItem = legend.append("g")
+                    .attr("transform", `translate(0, ${i * 20})`);
+
+                legendItem.append("rect")
+                    .attr("x", 0)
+                    .attr("y", 0)
+                    .attr("width", 18)
+                    .attr("height", 18)
+                    .style("fill", item.color);
+
+                legendItem.append("text")
+                    .attr("x", 25)
+                    .attr("y", 14)
+                    .text(item.name)
+                    .style("font-size", "12px");
+            });
+
+            // Add hover effects
+            const focus = svgBitcoin.append("g")
+                .style("display", "none");
+
+            focus.append("circle")
+                .attr("r", 5)
+                .style("fill", "black");
+
+            svgBitcoin.append("rect")
+                .attr("width", width)
+                .attr("height", height)
+                .style("fill", "none")
+                .style("pointer-events", "all")
+                .on("mouseover", () => {
+                    focus.style("display", null);
+                    tooltip.style("opacity", 1);
+                })
+                .on("mouseout", () => {
+                    focus.style("display", "none");
+                    tooltip.style("opacity", 0);
+                })
+                .on("mousemove", event => {
+                    const bisect = d3.bisector(d => d.date).left;
+                    const x0 = x.invert(d3.pointer(event)[0]);
+                    const i = bisect(data, x0, 1);
+                    const d0 = data[i - 1];
+                    const d1 = data[i];
+                    const d = x0 - d0.date > d1.date - x0 ? d1 : d0;
+
+                    focus.attr("transform", `translate(${x(d.date)},${y(d.bitcoin)})`);
+                    tooltip
+                        .style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 10) + "px")
+                        .html(`Date: ${d.date.toLocaleDateString()}<br>Bitcoin: ${d.bitcoin.toFixed(2)}%<br>Ethereum: ${d.ethereum.toFixed(2)}%<br>Other: ${d.other.toFixed(2)}%`);
+                });
+        });
+
+        // Function to process cryptocurrency data
+        function processCryptoData(jsonData) {
+            return Object.entries(jsonData.data.points).map(([timestamp, values]) => ({
+                date: new Date(parseInt(timestamp) * 1000),
+                price: values.v[0]
+            })).sort((a, b) => a.date - b.date);
+        }
+
+        // Load and create charts for all cryptocurrencies
+        const cryptoConfigs = [
+            { file: "pepe.json", svg: svgPepe, name: "PEPE", className: "pepe", color: "#00b894" },
+            { file: "bonk.json", svg: svgBonk, name: "BONK", className: "bonk", color: "#e84393" },
+            { file: "doge.json", svg: svgDoge, name: "DOGE", className: "doge", color: "#ffd32a" },
+            { file: "floki.json", svg: svgFloki, name: "FLOKI", className: "floki", color: "#0984e3" },
+            { file: "shib.json", svg: svgShib, name: "SHIB", className: "shib", color: "#e17055" }
+        ];
+
+        // Create combined memecoin chart
+        Promise.all([
+            ...cryptoConfigs.map(config => 
+                d3.json(config.file).then(jsonData => ({
+                    ...config,
+                    data: processCryptoData(jsonData)
+                }))
+            ),
+            d3.json("data.json").then(jsonData => ({
+                name: "Bitcoin Dominance",
+                className: "bitcoin",
+                color: "#f7931a",
+                data: jsonData.data.points.map(d => ({
+                    date: new Date(parseInt(d.timestamp) * 1000),
+                    dominance: d.dominance[0]
+                }))
+            })),
+            d3.json("data.json").then(jsonData => ({
+                name: "Altcoin Dominance",
+                className: "altcoin",
+                color: "#6c5ce7", // Purple color for altcoin dominance
+                data: jsonData.data.points.map(d => ({
+                    date: new Date(parseInt(d.timestamp) * 1000),
+                    dominance: 100 - d.dominance[0] // Inverse of Bitcoin dominance
+                }))
+            }))
+        ]).then(results => {
+            const memecoinResults = results.slice(0, -2);
+            const bitcoinDominance = results[results.length - 2];
+            const altcoinDominance = results[results.length - 1];
+
+            // Find the overall date range
+            const allDates = memecoinResults.flatMap(r => r.data.map(d => d.date));
+            const xDomain = [d3.min(allDates), d3.max(allDates)];
+            
+            // Find the overall price range
+            const allPrices = memecoinResults.flatMap(r => r.data.map(d => d.price));
+            const yDomain = [d3.min(allPrices), d3.max(allPrices)];
+
+            const x = d3.scaleTime()
+                .domain(xDomain)
+                .range([0, width]);
+
+            const y = d3.scaleLog()
+                .domain(yDomain)
+                .range([height, 0]);
+
+            const y2 = d3.scaleLinear()
+                .domain([0, 100])
+                .range([height, 0]);
+
+            // Add axes
+            svgCombined.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(x))
+                .selectAll("text")
+                .style("text-anchor", "end")
+                .attr("dx", "-.8em")
+                .attr("dy", ".15em")
+                .attr("transform", "rotate(-45)");
+
+            svgCombined.append("g")
+                .call(d3.axisLeft(y)
+                    .tickFormat(d => d3.format(".2e")(d)));
+
+            svgCombined.append("g")
+                .attr("transform", `translate(${width},0)`)
+                .call(d3.axisRight(y2));
+
+            // Create line generators
+            const priceLine = d3.line()
+                .x(d => x(d.date))
+                .y(d => y(d.price));
+
+            const dominanceLine = d3.line()
+                .x(d => x(d.date))
+                .y(d => y2(d.dominance));
+
+            // Add lines for each cryptocurrency
+            memecoinResults.forEach(result => {
+                svgCombined.append("path")
+                    .datum(result.data)
+                    .attr("class", `line ${result.className}`)
+                    .attr("d", priceLine);
+            });
+
+            // // Add Bitcoin and Altcoin dominance lines
+            // svgCombined.append("path")
+            //     .datum(bitcoinDominance.data)
+            //     .attr("class", "line bitcoin")
+            //     .attr("d", dominanceLine)
+            //     .style("stroke-dasharray", "5,5"); // Make it dashed to distinguish
+
+            svgCombined.append("path")
+                .datum(altcoinDominance.data)
+                .attr("class", "line")
+                .attr("d", dominanceLine)
+                .style("stroke", altcoinDominance.color)
+                .style("stroke-dasharray", "5,5"); // Make it dashed to distinguish
+
+            // Add labels
+            svgCombined.append("text")
+                .attr("class", "axis-label")
+                .attr("text-anchor", "middle")
+                .attr("x", width / 2)
+                .attr("y", height + margin.bottom - 5)
+                .text("Date");
+
+            svgCombined.append("text")
+                .attr("class", "axis-label")
+                .attr("text-anchor", "middle")
+                .attr("transform", "rotate(-90)")
+                .attr("y", -margin.left + 20)
+                .attr("x", -height / 2)
+                .text("Price (USD)");
+
+            svgCombined.append("text")
+                .attr("class", "axis-label")
+                .attr("text-anchor", "middle")
+                .attr("transform", "rotate(-90)")
+                .attr("y", width + margin.right + 20)
+                .attr("x", -height / 2)
+                .text("Bitcoin Dominance (%)");
+
+            svgCombined.append("text")
+                .attr("class", "title")
+                .attr("x", width / 2)
+                .attr("y", -margin.top / 2)
+                .text("Memecoin Prices vs Bitcoin Dominance");
+
+            // Add legend
+            const legend = svgCombined.append("g")
+                .attr("class", "legend")
+                .attr("transform", `translate(${width - 150}, 20)`);
+
+            [...memecoinResults, bitcoinDominance, altcoinDominance].forEach((result, i) => {
+                const legendItem = legend.append("g")
+                    .attr("transform", `translate(0, ${i * 20})`);
+
+                legendItem.append("line")
+                    .attr("x1", 0)
+                    .attr("x2", 20)
+                    .attr("stroke", result.color)
+                    .attr("class", result.className ? `line ${result.className}` : "line")
+                    .style("stroke-dasharray", i >= memecoinResults.length ? "5,5" : "none");
+
+                legendItem.append("text")
+                    .attr("x", 25)
+                    .attr("y", 5)
+                    .text(result.name)
+                    .style("font-size", "12px");
+            });
+
+            // Add hover effects
+            const focusLines = [...memecoinResults.map(result => ({
+                focus: svgCombined.append("g").style("display", "none"),
+                data: result.data,
+                name: result.name,
+                color: result.color,
+                isPrice: true
+            })), {
+                focus: svgCombined.append("g").style("display", "none"),
+                data: bitcoinDominance.data,
+                name: "Bitcoin Dominance",
+                color: bitcoinDominance.color,
+                isPrice: false
+            }, {
+                focus: svgCombined.append("g").style("display", "none"),
+                data: altcoinDominance.data,
+                name: "Altcoin Dominance",
+                color: altcoinDominance.color,
+                isPrice: false
+            }];
+
+            focusLines.forEach(({focus, color}) => {
+                focus.append("circle")
+                    .attr("r", 5)
+                    .style("fill", color);
+            });
+
+            svgCombined.append("rect")
+                .attr("width", width)
+                .attr("height", height)
+                .style("fill", "none")
+                .style("pointer-events", "all")
+                .on("mouseover", () => {
+                    focusLines.forEach(f => f.focus.style("display", null));
+                    tooltip.style("opacity", 1);
+                })
+                .on("mouseout", () => {
+                    focusLines.forEach(f => f.focus.style("display", "none"));
+                    tooltip.style("opacity", 0);
+                })
+                .on("mousemove", event => {
+                    const bisect = d3.bisector(d => d.date).left;
+                    const x0 = x.invert(d3.pointer(event)[0]);
+                    
+                    let tooltipContent = `Date: ${x0.toLocaleDateString()}<br>`;
+                    
+                    focusLines.forEach(({focus, data, name, color, isPrice}) => {
+                        const i = bisect(data, x0, 1);
+                        if (i > 0 && i < data.length) {
+                            const d0 = data[i - 1];
+                            const d1 = data[i];
+                            const d = x0 - d0.date > d1.date - x0 ? d1 : d0;
+                            
+                            const yPos = isPrice ? y(d.price) : y2(d.dominance);
+                            focus.attr("transform", `translate(${x(d.date)},${yPos})`);
+                            
+                            if (isPrice) {
+                                tooltipContent += `${name}: $${d.price.toExponential(6)}<br>`;
+                            } else {
+                                tooltipContent += `${name}: ${d.dominance.toFixed(2)}%<br>`;
+                            }
+                        }
+                    });
+
+                    tooltip
+                        .style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 10) + "px")
+                        .html(tooltipContent);
+                });
+        });
+
+        // Create filtered memecoin chart (after 2022)
+        Promise.all([
+            ...cryptoConfigs.map(config => 
+                d3.json(config.file).then(jsonData => ({
+                    ...config,
+                    data: processCryptoData(jsonData).filter(d => d.date.getFullYear() >= 2022)
+                }))
+            ),
+            d3.json("data.json").then(jsonData => ({
+                name: "Bitcoin Dominance",
+                className: "bitcoin",
+                color: "#f7931a",
+                data: jsonData.data.points.map(d => ({
+                    date: new Date(parseInt(d.timestamp) * 1000),
+                    dominance: d.dominance[0]
+                })).filter(d => d.date.getFullYear() >= 2022)
+            }))
+        ]).then(results => {
+            const filteredMemecoinResults = results.slice(0, -1);
+            const bitcoinDominance = results[results.length - 1];
+
+            // Find the overall date range for filtered data
+            const allDates = filteredMemecoinResults.flatMap(r => r.data.map(d => d.date));
+            const xDomain = [d3.min(allDates), d3.max(allDates)];
+            
+            // Find the overall price range for filtered data
+            const allPrices = filteredMemecoinResults.flatMap(r => r.data.map(d => d.price));
+            const yDomain = [d3.min(allPrices), d3.max(allPrices)];
+
+            const x = d3.scaleTime()
+                .domain(xDomain)
+                .range([0, width]);
+
+            const y = d3.scaleLog()
+                .domain(yDomain)
+                .range([height, 0]);
+
+            const y2 = d3.scaleLinear()
+                .domain([0, 100])
+                .range([height, 0]);
+
+            // Add axes
+            svgFiltered.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(x))
+                .selectAll("text")
+                .style("text-anchor", "end")
+                .attr("dx", "-.8em")
+                .attr("dy", ".15em")
+                .attr("transform", "rotate(-45)");
+
+            svgFiltered.append("g")
+                .call(d3.axisLeft(y)
+                    .tickFormat(d => d3.format(".2e")(d)));
+
+            svgFiltered.append("g")
+                .attr("transform", `translate(${width},0)`)
+                .call(d3.axisRight(y2));
+
+            // Create line generators
+            const priceLine = d3.line()
+                .x(d => x(d.date))
+                .y(d => y(d.price));
+
+            const dominanceLine = d3.line()
+                .x(d => x(d.date))
+                .y(d => y2(d.dominance));
+
+            // Add lines for each cryptocurrency
+            filteredMemecoinResults.forEach(result => {
+                svgFiltered.append("path")
+                    .datum(result.data)
+                    .attr("class", `line ${result.className}`)
+                    .attr("d", priceLine);
+            });
+
+            // Add Bitcoin dominance line
+            svgFiltered.append("path")
+                .datum(bitcoinDominance.data)
+                .attr("class", "line bitcoin")
+                .attr("d", dominanceLine)
+                .style("stroke-dasharray", "5,5");
+
+            // Add labels
+            svgFiltered.append("text")
+                .attr("class", "axis-label")
+                .attr("text-anchor", "middle")
+                .attr("x", width / 2)
+                .attr("y", height + margin.bottom - 5)
+                .text("Date");
+
+            svgFiltered.append("text")
+                .attr("class", "axis-label")
+                .attr("text-anchor", "middle")
+                .attr("transform", "rotate(-90)")
+                .attr("y", -margin.left + 20)
+                .attr("x", -height / 2)
+                .text("Price (USD)");
+
+            svgFiltered.append("text")
+                .attr("class", "axis-label")
+                .attr("text-anchor", "middle")
+                .attr("transform", "rotate(-90)")
+                .attr("y", width + margin.right + 20)
+                .attr("x", -height / 2)
+                .text("Bitcoin Dominance (%)");
+
+            svgFiltered.append("text")
+                .attr("class", "title")
+                .attr("x", width / 2)
+                .attr("y", -margin.top / 2)
+                .text("Memecoin Price vs Bitcoin Dominance Comparison (2022-Present)");
+
+            // Add legend
+            const legend = svgFiltered.append("g")
+                .attr("class", "legend")
+                .attr("transform", `translate(${width - 150}, 20)`);
+
+            [...filteredMemecoinResults, bitcoinDominance].forEach((result, i) => {
+                const legendItem = legend.append("g")
+                    .attr("transform", `translate(0, ${i * 20})`);
+
+                legendItem.append("line")
+                    .attr("x1", 0)
+                    .attr("x2", 20)
+                    .attr("stroke", result.color)
+                    .attr("class", result.className ? `line ${result.className}` : "line")
+                    .style("stroke-dasharray", i >= filteredMemecoinResults.length ? "5,5" : "none");
+
+                legendItem.append("text")
+                    .attr("x", 25)
+                    .attr("y", 5)
+                    .text(result.name)
+                    .style("font-size", "12px");
+            });
+
+            // Add hover effects
+            const focusLines = [...filteredMemecoinResults.map(result => ({
+                focus: svgFiltered.append("g").style("display", "none"),
+                data: result.data,
+                name: result.name,
+                color: result.color,
+                isPrice: true
+            })), {
+                focus: svgFiltered.append("g").style("display", "none"),
+                data: bitcoinDominance.data,
+                name: "Bitcoin Dominance",
+                color: bitcoinDominance.color,
+                isPrice: false
+            }];
+
+            focusLines.forEach(({focus, color}) => {
+                focus.append("circle")
+                    .attr("r", 5)
+                    .style("fill", color);
+            });
+
+            svgFiltered.append("rect")
+                .attr("width", width)
+                .attr("height", height)
+                .style("fill", "none")
+                .style("pointer-events", "all")
+                .on("mouseover", () => {
+                    focusLines.forEach(f => f.focus.style("display", null));
+                    tooltip.style("opacity", 1);
+                })
+                .on("mouseout", () => {
+                    focusLines.forEach(f => f.focus.style("display", "none"));
+                    tooltip.style("opacity", 0);
+                })
+                .on("mousemove", event => {
+                    const bisect = d3.bisector(d => d.date).left;
+                    const x0 = x.invert(d3.pointer(event)[0]);
+                    
+                    let tooltipContent = `Date: ${x0.toLocaleDateString()}<br>`;
+                    
+                    focusLines.forEach(({focus, data, name, color, isPrice}) => {
+                        const i = bisect(data, x0, 1);
+                        if (i > 0 && i < data.length) {
+                            const d0 = data[i - 1];
+                            const d1 = data[i];
+                            const d = x0 - d0.date > d1.date - x0 ? d1 : d0;
+                            
+                            const yPos = isPrice ? y(d.price) : y2(d.dominance);
+                            focus.attr("transform", `translate(${x(d.date)},${yPos})`);
+                            
+                            if (isPrice) {
+                                tooltipContent += `${name}: $${d.price.toExponential(6)}<br>`;
+                            } else {
+                                tooltipContent += `${name}: ${d.dominance.toFixed(2)}%<br>`;
+                            }
+                        }
+                    });
+
+                    tooltip
+                        .style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 10) + "px")
+                        .html(tooltipContent);
+                });
+        });
+
+        cryptoConfigs.forEach(config => {
+            d3.json(config.file).then(jsonData => {
+                const data = processCryptoData(jsonData);
+                createPriceChart(config.svg, data, config);
+            });
+        });
+
+        // Create correlation heatmap
+        function createCorrelationHeatmap() {
+            // Function to calculate Pearson correlation coefficient
+            function calculateCorrelation(xValues, yValues) {
+                if (xValues.length !== yValues.length || xValues.length === 0) {
+                    return 0;
+                }
+                
+                // Calculate means
+                const xMean = xValues.reduce((sum, val) => sum + val, 0) / xValues.length;
+                const yMean = yValues.reduce((sum, val) => sum + val, 0) / yValues.length;
+                
+                // Calculate correlation coefficient
+                let numerator = 0;
+                let xDenominator = 0;
+                let yDenominator = 0;
+                
+                for (let i = 0; i < xValues.length; i++) {
+                    const xDiff = xValues[i] - xMean;
+                    const yDiff = yValues[i] - yMean;
+                    numerator += xDiff * yDiff;
+                    xDenominator += xDiff * xDiff;
+                    yDenominator += yDiff * yDiff;
+                }
+                
+                if (xDenominator === 0 || yDenominator === 0) {
+                    return 0;
+                }
+                
+                return numerator / Math.sqrt(xDenominator * yDenominator);
+            }
+            
+            // Define dimensions for the heatmap
+            const margin = {top: 40, right: 100, bottom: 100, left: 60};
+            const width = 960 - margin.left - margin.right;
+            const height = 400 - margin.top - margin.bottom;
+            
+            // Create SVG for the correlation heatmap
+            const svg = d3.select("#correlation-chart")
+                .append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+            
+            // Load Bitcoin dominance and cryptocurrency data
+            Promise.all([
+                d3.json("data.json"),
+                ...cryptoConfigs.map(config => d3.json(config.file))
+            ]).then(results => {
+                const btcDomData = results[0];
+                const coinDataResults = results.slice(1).map((data, index) => ({
+                    ...cryptoConfigs[index],
+                    data
+                }));
+                
+                // Process Bitcoin dominance data
+                const btcDominanceData = btcDomData.data.points.map(point => ({
+                    timestamp: parseInt(point.timestamp),
+                    dominance: point.dominance[0]
+                }));
+                
+                // Process price data for each coin
+                const processedCoinData = coinDataResults.map(result => {
+                    const priceData = Object.entries(result.data.data.points).map(([timestamp, values]) => ({
+                        timestamp: parseInt(timestamp),
+                        price: values.v[0]
+                    }));
+                    return { ...result, priceData };
+                });
+                
+                // Group data by quarters
+                const quarterlyData = [];
+                
+                // Define quarters (start from 2019 or the earliest data available)
+                const timestamps = [
+                    ...btcDominanceData.map(d => d.timestamp),
+                    ...processedCoinData.flatMap(c => c.priceData.map(d => d.timestamp))
+                ];
+                const startTimestamp = d3.min(timestamps);
+                const endTimestamp = d3.max(timestamps);
+                
+                const startDate = new Date(startTimestamp * 1000);
+                const endDate = new Date(endTimestamp * 1000);
+                
+                const startYear = startDate.getFullYear();
+                const endYear = endDate.getFullYear();
+                
+                for (let year = startYear; year <= endYear; year++) {
+                    for (let quarter = 1; quarter <= 4; quarter++) {
+                        // Skip future quarters
+                        const currentDate = new Date();
+                        if (year > currentDate.getFullYear() || 
+                           (year === currentDate.getFullYear() && quarter > Math.ceil((currentDate.getMonth() + 1) / 3))) {
+                            continue;
+                        }
+                        
+                        const startDate = new Date(year, (quarter - 1) * 3, 1).getTime() / 1000;
+                        const endDate = new Date(year, quarter * 3, 0).getTime() / 1000;
+                        
+                        // Filter data for this quarter
+                        const btcDomForQuarter = btcDominanceData.filter(
+                            item => item.timestamp >= startDate && item.timestamp <= endDate
+                        );
+                        
+                        if (btcDomForQuarter.length === 0) continue;
+                        
+                        const correlations = [];
+                        
+                        for (const coin of processedCoinData) {
+                            const coinDataForQuarter = coin.priceData.filter(
+                                item => item.timestamp >= startDate && item.timestamp <= endDate
+                            );
+                            
+                            if (coinDataForQuarter.length === 0) continue;
+                            
+                            // Find data points that have both BTC dominance and price
+                            // by merging on closest timestamps
+                            const btcDomValues = [];
+                            const coinPriceValues = [];
+                            
+                            // Get all timestamps
+                            const allTimestamps = [...new Set([
+                                ...btcDomForQuarter.map(d => d.timestamp),
+                                ...coinDataForQuarter.map(d => d.timestamp)
+                            ])].sort((a, b) => a - b);
+                            
+                            // For each timestamp, find the closest data point
+                            for (const timestamp of allTimestamps) {
+                                const closestBtcDom = btcDomForQuarter.reduce((prev, curr) => 
+                                    Math.abs(curr.timestamp - timestamp) < Math.abs(prev.timestamp - timestamp) ? curr : prev
+                                );
+                                
+                                const closestCoinPrice = coinDataForQuarter.reduce((prev, curr) => 
+                                    Math.abs(curr.timestamp - timestamp) < Math.abs(prev.timestamp - timestamp) ? curr : prev
+                                );
+                                
+                                // Only use if they're close enough (within 2 days)
+                                if (Math.abs(closestBtcDom.timestamp - timestamp) < 172800 && 
+                                    Math.abs(closestCoinPrice.timestamp - timestamp) < 172800) {
+                                    btcDomValues.push(closestBtcDom.dominance);
+                                    coinPriceValues.push(closestCoinPrice.price);
+                                }
+                            }
+                            
+                            // Calculate correlation if we have enough data points
+                            if (btcDomValues.length > 5) {
+                                const correlation = calculateCorrelation(btcDomValues, coinPriceValues);
+                                
+                                correlations.push({
+                                    coin: coin.name,
+                                    correlation: isNaN(correlation) ? 0 : correlation,
+                                    color: coin.color
+                                });
+                            } else {
+                                correlations.push({
+                                    coin: coin.name,
+                                    correlation: 0,
+                                    color: coin.color
+                                });
+                            }
+                        }
+                        
+                        // Only add the quarter if we have correlations
+                        if (correlations.length > 0) {
+                            quarterlyData.push({
+                                period: `Q${quarter} ${year}`,
+                                timestamp: startDate,
+                                correlations
+                            });
+                        }
+                    }
+                }
+                
+                // Sort by timestamp
+                quarterlyData.sort((a, b) => a.timestamp - b.timestamp);
+                
+                // Set up the visualization
+                if (quarterlyData.length === 0) {
+                    d3.select("#correlation-chart")
+                        .append("div")
+                        .style("text-align", "center")
+                        .style("padding", "40px")
+                        .text("Not enough data to calculate correlations");
+                    return;
+                }
+                
+                // Create scales
+                const y = d3.scaleBand()
+                    .domain(quarterlyData[0].correlations.map(d => d.coin))
+                    .range([0, height])
+                    .padding(0.2);
+                
+                // Define color scales for correlation
+                const getColorForCorrelation = (value) => {
+                    // Red for negative correlation, blue for positive
+                    if (value < 0) {
+                        const intensity = Math.min(0.9, Math.abs(value) * 0.9 + 0.1);
+                        return `rgba(220, 38, 38, ${intensity})`;
+                    } else {
+                        const intensity = Math.min(0.9, value * 0.9 + 0.1);
+                        return `rgba(37, 99, 235, ${intensity})`;
+                    }
+                };
+                
+                // Add y axis
+                svg.append("g")
+                    .call(d3.axisLeft(y));
+                
+                // Add color legend
+                const legendWidth = 200;
+                const legendHeight = 20;
+                
+                // Add labels for the legend
+                svg.append("text")
+                    .attr("class", "correlation-legend")
+                    .attr("x", width / 2 - legendWidth / 2)
+                    .attr("y", height + 40)
+                    .style("text-anchor", "start")
+                    .text("Strong Negative");
+                
+                svg.append("text")
+                    .attr("class", "correlation-legend")
+                    .attr("x", width / 2)
+                    .attr("y", height + 40)
+                    .style("text-anchor", "middle")
+                    .text("No Correlation");
+                
+                svg.append("text")
+                    .attr("class", "correlation-legend")
+                    .attr("x", width / 2 + legendWidth / 2)
+                    .attr("y", height + 40)
+                    .style("text-anchor", "end")
+                    .text("Strong Positive");
+                
+                // Create gradient for the legend
+                const defs = svg.append("defs");
+                
+                const negGradient = defs.append("linearGradient")
+                    .attr("id", "neg-correlation-gradient")
+                    .attr("x1", "0%")
+                    .attr("x2", "100%");
+                
+                negGradient.append("stop")
+                    .attr("offset", "0%")
+                    .attr("stop-color", "rgba(220, 38, 38, 0.9)"); // Strong red
+                
+                negGradient.append("stop")
+                    .attr("offset", "100%")
+                    .attr("stop-color", "rgba(220, 38, 38, 0.1)"); // Light red
+                
+                const posGradient = defs.append("linearGradient")
+                    .attr("id", "pos-correlation-gradient")
+                    .attr("x1", "0%")
+                    .attr("x2", "100%");
+                
+                posGradient.append("stop")
+                    .attr("offset", "0%")
+                    .attr("stop-color", "rgba(37, 99, 235, 0.1)"); // Light blue
+                
+                posGradient.append("stop")
+                    .attr("offset", "100%")
+                    .attr("stop-color", "rgba(37, 99, 235, 0.9)"); // Strong blue
+                
+                // Add the legend rectangles
+                svg.append("rect")
+                    .attr("x", width / 2 - legendWidth / 2)
+                    .attr("y", height + 50)
+                    .attr("width", legendWidth / 2)
+                    .attr("height", legendHeight)
+                    .style("fill", "url(#neg-correlation-gradient)");
+                
+                svg.append("rect")
+                    .attr("x", width / 2)
+                    .attr("y", height + 50)
+                    .attr("width", legendWidth / 2)
+                    .attr("height", legendHeight)
+                    .style("fill", "url(#pos-correlation-gradient)");
+                
+                // Add labels for the legend values
+                svg.append("text")
+                    .attr("class", "correlation-legend")
+                    .attr("x", width / 2 - legendWidth / 2)
+                    .attr("y", height + 85)
+                    .style("text-anchor", "start")
+                    .text("-1.0");
+                
+                svg.append("text")
+                    .attr("class", "correlation-legend")
+                    .attr("x", width / 2)
+                    .attr("y", height + 85)
+                    .style("text-anchor", "middle")
+                    .text("0.0");
+                
+                svg.append("text")
+                    .attr("class", "correlation-legend")
+                    .attr("x", width / 2 + legendWidth / 2)
+                    .attr("y", height + 85)
+                    .style("text-anchor", "end")
+                    .text("+1.0");
+                
+                // Add description text
+                svg.append("text")
+                    .attr("x", width / 2)
+                    .attr("y", height + 110)
+                    .style("text-anchor", "middle")
+                    .style("font-size", "11px")
+                    .style("fill", "#666")
+                    .text("Negative correlation: prices move opposite to Bitcoin dominance");
+                
+                svg.append("text")
+                    .attr("x", width / 2)
+                    .attr("y", height + 125)
+                    .style("text-anchor", "middle")
+                    .style("font-size", "11px")
+                    .style("fill", "#666")
+                    .text("Positive correlation: prices move with Bitcoin dominance");
+                
+                // Create the initial bars
+                const currentPeriod = 0;
+                const period = quarterlyData[currentPeriod];
+                
+                // Update the title
+                d3.select("#correlation-title")
+                    .text(`Bitcoin Dominance Correlation - ${period.period}`);
+                
+                // Create the bars
+                svg.selectAll(".correlation-bar")
+                    .data(period.correlations)
+                    .enter()
+                    .append("rect")
+                    .attr("class", "correlation-bar")
+                    .attr("x", d => {
+                        if (d.correlation < 0) {
+                            return width / 2 - Math.abs(d.correlation) * (width / 2);
+                        } else {
+                            return width / 2;
+                        }
+                    })
+                    .attr("y", d => y(d.coin))
+                    .attr("width", d => Math.abs(d.correlation) * (width / 2))
+                    .attr("height", y.bandwidth())
+                    .attr("fill", d => getColorForCorrelation(d.correlation));
+                
+                // Add a vertical line at the center
+                svg.append("line")
+                    .attr("x1", width / 2)
+                    .attr("x2", width / 2)
+                    .attr("y1", 0)
+                    .attr("y2", height)
+                    .style("stroke", "#999")
+                    .style("stroke-width", 1)
+                    .style("stroke-dasharray", "3,3");
+                
+                // Add correlation values
+                svg.selectAll(".correlation-value")
+                    .data(period.correlations)
+                    .enter()
+                    .append("text")
+                    .attr("class", "correlation-value")
+                    .attr("x", d => {
+                        if (d.correlation < 0) {
+                            return width / 2 - Math.abs(d.correlation) * (width / 2) - 10;
+                        } else {
+                            return width / 2 + Math.abs(d.correlation) * (width / 2) + 10;
+                        }
+                    })
+                    .attr("y", d => y(d.coin) + y.bandwidth() / 2)
+                    .attr("dominant-baseline", "middle")
+                    .attr("text-anchor", d => d.correlation < 0 ? "end" : "start")
+                    .text(d => d.correlation.toFixed(2));
+                
+                // Set up the period slider
+                const slider = d3.select("#period-slider")
+                    .attr("max", quarterlyData.length - 1);
+                
+                // Add period labels
+                const periodLabels = d3.select("#period-labels");
+                
+                if (quarterlyData.length <= 10) {
+                    // If there are 10 or fewer periods, show all labels
+                    quarterlyData.forEach((period, i) => {
+                        periodLabels.append("span")
+                            .attr("id", `period-label-${i}`)
+                            .text(period.period)
+                            .classed("active", i === currentPeriod);
+                    });
+                } else {
+                    // Otherwise, show only some labels
+                    const step = Math.ceil(quarterlyData.length / 6);
+                    quarterlyData.forEach((period, i) => {
+                        if (i % step === 0 || i === quarterlyData.length - 1) {
+                            periodLabels.append("span")
+                                .attr("id", `period-label-${i}`)
+                                .text(period.period)
+                                .classed("active", i === currentPeriod);
+                        } else {
+                            periodLabels.append("span").style("opacity", 0);
+                        }
+                    });
+                }
+                
+                // Set up animation controls
+                let isPlaying = false;
+                let animationInterval;
+                
+                // Function to update the visualization for a specific period
+                function updateVisualization(periodIndex) {
+                    const period = quarterlyData[periodIndex];
+                    
+                    // Update the title
+                    d3.select("#correlation-title")
+                        .text(`Bitcoin Dominance Correlation - ${period.period}`);
+                    
+                    // Update the active period label
+                    d3.selectAll("#period-labels span").classed("active", false);
+                    d3.select(`#period-label-${periodIndex}`).classed("active", true);
+                    
+                    // Update the bars
+                    svg.selectAll(".correlation-bar")
+                        .data(period.correlations)
+                        .transition()
+                        .duration(500)
+                        .attr("x", d => {
+                            if (d.correlation < 0) {
+                                return width / 2 - Math.abs(d.correlation) * (width / 2);
+                            } else {
+                                return width / 2;
+                            }
+                        })
+                        .attr("width", d => Math.abs(d.correlation) * (width / 2))
+                        .attr("fill", d => getColorForCorrelation(d.correlation));
+                    
+                    // Update the correlation values
+                    svg.selectAll(".correlation-value")
+                        .data(period.correlations)
+                        .transition()
+                        .duration(500)
+                        .attr("x", d => {
+                            if (d.correlation < 0) {
+                                return width / 2 - Math.abs(d.correlation) * (width / 2) - 10;
+                            } else {
+                                return width / 2 + Math.abs(d.correlation) * (width / 2) + 10;
+                            }
+                        })
+                        .text(d => d.correlation.toFixed(2));
+                    
+                    // Update the slider
+                    slider.property("value", periodIndex);
+                }
+                
+                // Play button functionality
+                d3.select("#play-button").on("click", function() {
+                    if (isPlaying) {
+                        // Pause
+                        clearInterval(animationInterval);
+                        d3.select(this).html("▶ Play");
+                    } else {
+                        // Play
+                        let currentIndex = parseInt(slider.property("value"));
+                        
+                        // If at the end, reset to beginning
+                        if (currentIndex >= quarterlyData.length - 1) {
+                            currentIndex = 0;
+                            updateVisualization(currentIndex);
+                        }
+                        
+                        animationInterval = setInterval(() => {
+                            currentIndex++;
+                            if (currentIndex >= quarterlyData.length) {
+                                clearInterval(animationInterval);
+                                isPlaying = false;
+                                d3.select("#play-button").html("▶ Play");
+                                return;
+                            }
+                            updateVisualization(currentIndex);
+                        }, 1000);
+                        
+                        d3.select(this).html("⏸ Pause");
+                    }
+                    
+                    isPlaying = !isPlaying;
+                });
+                
+                // Reset button functionality
+                d3.select("#reset-button").on("click", function() {
+                    clearInterval(animationInterval);
+                    isPlaying = false;
+                    d3.select("#play-button").html("▶ Play");
+                    updateVisualization(0);
+                });
+                
+                // Slider functionality
+                slider.on("input", function() {
+                    clearInterval(animationInterval);
+                    isPlaying = false;
+                    d3.select("#play-button").html("▶ Play");
+                    updateVisualization(parseInt(this.value));
+                });
+            }).catch(error => {
+                console.error("Error loading data:", error);
+                d3.select("#correlation-chart")
+                    .append("div")
+                    .style("text-align", "center")
+                    .style("padding", "40px")
+                    .text("Error loading data. Please check the console for details.");
+            });
+        }
+        
+        // Call the function to create the correlation heatmap
+        createCorrelationHeatmap();
+    </script>
+</body>
+</html>

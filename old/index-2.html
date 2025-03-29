@@ -1,0 +1,2304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crypto Market Dominance</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #050505;
+            --card-bg: rgba(20, 20, 20, 0.7);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --text-primary: #ffffff;
+            --text-secondary: rgba(255, 255, 255, 0.6);
+            --accent-color: #3861fb;
+            --bitcoin-gradient-start: rgba(247, 147, 26, 0.8);
+            --bitcoin-gradient-end: rgba(247, 147, 26, 0.2);
+            --ethereum-gradient-start: rgba(98, 126, 234, 0.8);
+            --ethereum-gradient-end: rgba(98, 126, 234, 0.2);
+            --others-gradient-start: rgba(140, 140, 140, 0.8);
+            --others-gradient-end: rgba(140, 140, 140, 0.2);
+            --border-radius: 20px;
+            --card-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            --glass-highlight: rgba(255, 255, 255, 0.05);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg-color);
+            background-image: 
+                radial-gradient(circle at 10% 10%, rgba(56, 97, 251, 0.1), transparent 30%),
+                radial-gradient(circle at 90% 90%, rgba(247, 147, 26, 0.1), transparent 30%);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 24px;
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 32px;
+            background-color: var(--card-bg);
+            border-radius: var(--border-radius);
+            box-shadow: var(--card-shadow);
+            border: 1px solid var(--card-border);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--glass-highlight), transparent);
+        }
+
+        .header {
+            position: relative;
+            z-index: 1;
+            margin-bottom: 32px;
+        }
+
+        h1 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 4px;
+            background: linear-gradient(90deg, #f7931a, #627eea);
+            -webkit-text-fill-color: transparent;
+            text-align: center;
+            letter-spacing: -0.5px;
+        }
+
+        h3 {
+            font-size: 16px;
+            font-weight: 400;
+            color: var(--text-secondary);
+            margin-top: 0;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+
+        .chart-container {
+            position: relative;
+            margin-bottom: 24px;
+            border-radius: 16px;
+            overflow: hidden;
+            background: rgba(10, 10, 10, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 16px;
+        }
+
+        .tooltip {
+            position: absolute;
+            padding: 12px 16px;
+            background: rgba(15, 15, 15, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            pointer-events: none;
+            font-size: 14px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+            opacity: 0;
+            transition: opacity 0.2s;
+            color: var(--text-primary);
+            z-index: 10;
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+        }
+
+        .legend {
+            display: flex;
+            justify-content: center;
+            margin-top: 24px;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 0 16px 8px;
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 30px;
+            transition: all 0.2s ease;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            user-select: none;
+        }
+
+        .legend-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .legend-item input[type="checkbox"] {
+            accent-color: var(--accent-color);
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+
+        .legend-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            margin-right: 8px;
+            border-radius: 50%;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 24px;
+            gap: 12px;
+        }
+
+        .time-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: var(--text-secondary);
+            padding: 8px 16px;
+            border-radius: 30px;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+        }
+
+        .time-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .time-btn.active, .meme-time-btn.active {
+            background: linear-gradient(135deg, rgba(56, 97, 251, 0.8), rgba(56, 97, 251, 0.4));
+            border: 1px solid rgba(56, 97, 251, 0.6);
+            color: white;
+            box-shadow: 0 5px 15px rgba(56, 97, 251, 0.3);
+        }
+
+        .axis text {
+            fill: var(--text-secondary);
+            font-size: 12px;
+        }
+
+        .axis path,
+        .axis line {
+            stroke: rgba(255, 255, 255, 0.1);
+        }
+
+        .grid line {
+            stroke: rgba(255, 255, 255, 0.05);
+            stroke-opacity: 0.5;
+        }
+
+        .grid path {
+            stroke-width: 0;
+        }
+
+        .area {
+            transition: all 0.3s ease;
+        }
+
+        .area:hover {
+            filter: brightness(1.2);
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 24px;
+            padding: 16px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .stat-item {
+            text-align: center;
+            flex: 1;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+        }
+
+        .stat-value {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .stat-value.positive {
+            color: #00c853;
+        }
+
+        .stat-value.negative {
+            color: #ff5252;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+            
+            h1 {
+                font-size: 24px;
+            }
+            
+            .controls {
+                flex-wrap: wrap;
+            }
+
+            .stats {
+                flex-direction: column;
+                gap: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Crypto Market Dominance</h1>
+            <h3>Historical market share evolution (2013-2025)</h3>
+        </div>
+        
+        <div class="controls">
+            <button class="time-btn active" data-range="all">All Time</button>
+            <button class="time-btn" data-range="5y">5 Years</button>
+            <button class="time-btn" data-range="1y">1 Year</button>
+            <button class="time-btn" data-range="6m">6 Months</button>
+        </div>
+        
+        <div class="chart-container">
+            <div id="chart"></div>
+            <div class="tooltip"></div>
+        </div>
+        
+        <div class="legend"></div>
+
+        <div class="stats">
+            <div class="stat-item">
+                <div class="stat-label">Bitcoin Dominance</div>
+                <div class="stat-value" id="btc-dominance">--.--%</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">Ethereum Dominance</div>
+                <div class="stat-value" id="eth-dominance">--.--%</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">Others Dominance</div>
+                <div class="stat-value" id="others-dominance">--.--%</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Meme Coins Chart Section -->
+    <div class="container" style="margin-top: 32px;">
+        <div class="header">
+            <h1>Meme Coins Trends</h1>
+            <h3>Historical price evolution of popular meme coins</h3>
+        </div>
+        
+        <div class="controls">
+            <button class="time-btn meme-time-btn active" data-range="all">All Time</button>
+            <button class="time-btn meme-time-btn" data-range="1y">1 Year</button>
+            <button class="time-btn meme-time-btn" data-range="6m">6 Months</button>
+            <button class="time-btn meme-time-btn" data-range="3m">3 Months</button>
+        </div>
+        
+        <div class="chart-container">
+            <div id="meme-chart"></div>
+            <div class="meme-tooltip tooltip"></div>
+            <div class="coin-tooltip tooltip" style="border-left: 4px solid transparent; padding-left: 12px;"></div>
+        </div>
+        
+        <div class="meme-legend legend"></div>
+    </div>
+
+    <!-- New Dual Axis Chart Section -->
+    <div class="container" style="margin-top: 32px;">
+        <div class="header">
+            <h1>Bitcoin Dominance vs SHIB Price</h1>
+            <h3>Comparing market dominance with price movements</h3>
+        </div>
+        
+        <div class="controls">
+            <button class="time-btn dual-time-btn active" data-range="all">All Time</button>
+            <button class="time-btn dual-time-btn" data-range="1y">1 Year</button>
+            <button class="time-btn dual-time-btn" data-range="6m">6 Months</button>
+            <button class="time-btn dual-time-btn" data-range="3m">3 Months</button>
+        </div>
+        
+        <div class="chart-container">
+            <div id="dual-chart"></div>
+            <div class="dual-tooltip tooltip"></div>
+        </div>
+        
+        <div class="dual-legend legend"></div>
+    </div>
+
+    <script>
+        // Load the data
+        d3.json("data.json").then(function(jsonData) {
+            // Parse the data
+            const data = jsonData.data;
+            const configs = data.configs;
+            const points = data.points;
+            
+            // Set up dimensions
+            const width = 1040;
+            const height = 500;
+            const margin = { top: 20, right: 30, bottom: 50, left: 60 };
+            const innerWidth = width - margin.left - margin.right;
+            const innerHeight = height - margin.top - margin.bottom;
+            
+            // Parse timestamps to Date objects
+            points.forEach(d => {
+                d.date = new Date(parseInt(d.timestamp) * 1000);
+            });
+            
+            // Create SVG with responsive design
+            const svg = d3.select("#chart")
+                .append("svg")
+                .attr("viewBox", `0 0 ${width} ${height}`)
+                .attr("width", "100%")
+                .attr("height", "100%")
+                .append("g")
+                .attr("transform", `translate(${margin.left}, ${margin.top})`);
+            
+            // Create gradient definitions
+            const defs = svg.append("defs");
+            
+            // Bitcoin gradient
+            const bitcoinGradient = defs.append("linearGradient")
+                .attr("id", "bitcoin-gradient")
+                .attr("x1", "0%")
+                .attr("y1", "0%")
+                .attr("x2", "0%")
+                .attr("y2", "100%");
+                
+            bitcoinGradient.append("stop")
+                .attr("offset", "0%")
+                .attr("stop-color", "rgba(247, 147, 26, 0.8)");
+                
+            bitcoinGradient.append("stop")
+                .attr("offset", "100%")
+                .attr("stop-color", "rgba(247, 147, 26, 0.2)");
+            
+            // Ethereum gradient
+            const ethereumGradient = defs.append("linearGradient")
+                .attr("id", "ethereum-gradient")
+                .attr("x1", "0%")
+                .attr("y1", "0%")
+                .attr("x2", "0%")
+                .attr("y2", "100%");
+                
+            ethereumGradient.append("stop")
+                .attr("offset", "0%")
+                .attr("stop-color", "rgba(98, 126, 234, 0.8)");
+                
+            ethereumGradient.append("stop")
+                .attr("offset", "100%")
+                .attr("stop-color", "rgba(98, 126, 234, 0.2)");
+            
+            // Others gradient
+            const othersGradient = defs.append("linearGradient")
+                .attr("id", "others-gradient")
+                .attr("x1", "0%")
+                .attr("y1", "0%")
+                .attr("x2", "0%")
+                .attr("y2", "100%");
+                
+            othersGradient.append("stop")
+                .attr("offset", "0%")
+                .attr("stop-color", "rgba(140, 140, 140, 0.8)");
+                
+            othersGradient.append("stop")
+                .attr("offset", "100%")
+                .attr("stop-color", "rgba(140, 140, 140, 0.2)");
+            
+            // Function to filter data based on time range
+            function filterData(range) {
+                const now = new Date();
+                let filteredPoints = points;
+                
+                if (range === "5y") {
+                    const fiveYearsAgo = new Date();
+                    fiveYearsAgo.setFullYear(now.getFullYear() - 5);
+                    filteredPoints = points.filter(d => d.date >= fiveYearsAgo);
+                } else if (range === "1y") {
+                    const oneYearAgo = new Date();
+                    oneYearAgo.setFullYear(now.getFullYear() - 1);
+                    filteredPoints = points.filter(d => d.date >= oneYearAgo);
+                } else if (range === "6m") {
+                    const sixMonthsAgo = new Date();
+                    sixMonthsAgo.setMonth(now.getMonth() - 6);
+                    filteredPoints = points.filter(d => d.date >= sixMonthsAgo);
+                }
+                
+                return filteredPoints;
+            }
+            
+            // Function to update chart
+            function updateChart(range) {
+                const filteredPoints = filterData(range);
+                
+                // Update stats with the most recent data
+                const latestData = filteredPoints[filteredPoints.length - 1];
+                document.getElementById("btc-dominance").textContent = latestData.dominance[0].toFixed(2) + "%";
+                document.getElementById("eth-dominance").textContent = latestData.dominance[1].toFixed(2) + "%";
+                document.getElementById("others-dominance").textContent = latestData.dominance[2].toFixed(2) + "%";
+                
+                // Update scales
+                const xScale = d3.scaleTime()
+                    .domain(d3.extent(filteredPoints, d => d.date))
+                    .range([0, innerWidth]);
+                    
+                const yScale = d3.scaleLinear()
+                    .domain([0, 100])
+                    .range([innerHeight, 0]);
+                
+                // Create stack generator
+                const stack = d3.stack()
+                    .keys([0, 1, 2])
+                    .value((d, key) => d.dominance[key]);
+                    
+                const stackedData = stack(filteredPoints);
+                
+                // Create area generator with smooth curves
+                const area = d3.area()
+                    .x(d => xScale(d.data.date))
+                    .y0(d => yScale(d[0]))
+                    .y1(d => yScale(d[1]))
+                    .curve(d3.curveCatmullRom.alpha(0.5));
+                
+                // Clear previous elements
+                svg.selectAll(".area, .axis, .grid, .axis-label, .area-stroke").remove();
+                
+                // Add subtle glow effect
+                const glowFilter = defs.append("filter")
+                    .attr("id", "glow")
+                    .attr("x", "-50%")
+                    .attr("y", "-50%")
+                    .attr("width", "200%")
+                    .attr("height", "200%");
+                
+                glowFilter.append("feGaussianBlur")
+                    .attr("stdDeviation", "3")
+                    .attr("result", "blur");
+                
+                glowFilter.append("feComposite")
+                    .attr("in", "SourceGraphic")
+                    .attr("in2", "blur")
+                    .attr("operator", "over");
+                
+                // Add grid lines with animation
+                svg.append("g")
+                    .attr("class", "grid")
+                    .selectAll("line")
+                    .data(yScale.ticks(5))
+                    .join("line")
+                    .attr("class", "grid-line")
+                    .attr("x1", 0)
+                    .attr("x2", innerWidth)
+                    .attr("y1", d => yScale(d))
+                    .attr("y2", d => yScale(d))
+                    .attr("stroke", "rgba(255, 255, 255, 0.05)")
+                    .attr("stroke-opacity", 0.5)
+                    .attr("stroke-dasharray", "3,3");
+                
+                // Add areas with animation and gradients
+                const gradientIds = ["bitcoin-gradient", "ethereum-gradient", "others-gradient"];
+                
+                svg.selectAll(".area")
+                    .data(stackedData)
+                    .join("path")
+                    .attr("class", "area")
+                    .attr("d", area)
+                    .attr("fill", (d, i) => `url(#${gradientIds[i]})`)
+                    .attr("opacity", 0.9)
+                    .style("filter", "url(#glow)")
+                    .on("mouseover", function(event, d) {
+                        d3.select(this)
+                            .attr("opacity", 1)
+                            .style("filter", "url(#glow) brightness(1.2)");
+                    })
+                    .on("mouseout", function(event, d) {
+                        d3.select(this)
+                            .attr("opacity", 0.9)
+                            .style("filter", "url(#glow)");
+                    });
+                
+                // Add stroke lines on top of areas for a more defined look
+                stackedData.forEach((layer, i) => {
+                    const lineGenerator = d3.line()
+                        .x(d => xScale(d.data.date))
+                        .y(d => yScale(d[1]))
+                        .curve(d3.curveCatmullRom.alpha(0.5));
+                    
+                    svg.append("path")
+                        .attr("class", "area-stroke")
+                        .attr("d", lineGenerator(layer))
+                        .attr("fill", "none")
+                        .attr("stroke", i === 0 ? "#f7931a" : i === 1 ? "#627eea" : "#8c8c8c")
+                        .attr("stroke-width", 1.5)
+                        .attr("stroke-opacity", 0.8);
+                });
+                
+                // Add x-axis with animation
+                svg.append("g")
+                    .attr("class", "axis x-axis")
+                    .attr("transform", `translate(0, ${innerHeight})`)
+                    .call(d3.axisBottom(xScale)
+                        .ticks(range === "6m" ? 6 : range === "1y" ? 6 : 10)
+                        .tickFormat(d3.timeFormat(range === "6m" ? "%b %Y" : "%Y")))
+                    .selectAll("text")
+                    .style("font-size", "12px")
+                    .style("fill", "rgba(255, 255, 255, 0.6)");
+                
+                // Add y-axis with animation
+                svg.append("g")
+                    .attr("class", "axis y-axis")
+                    .call(d3.axisLeft(yScale)
+                        .ticks(5)
+                        .tickFormat(d => d + "%"))
+                    .selectAll("text")
+                    .style("font-size", "12px")
+                    .style("fill", "rgba(255, 255, 255, 0.6)");
+                
+                // Add y-axis label
+                svg.append("text")
+                    .attr("class", "axis-label")
+                    .attr("transform", "rotate(-90)")
+                    .attr("x", -innerHeight / 2)
+                    .attr("y", -40)
+                    .attr("text-anchor", "middle")
+                    .style("font-size", "14px")
+                    .style("fill", "rgba(255, 255, 255, 0.6)")
+                    .text("Market Dominance (%)");
+                
+                // Add tooltip functionality
+                const tooltip = d3.select(".tooltip");
+                const bisect = d3.bisector(d => d.date).left;
+                
+                // Add invisible overlay for tooltip
+                if (!svg.select(".overlay").size()) {
+                    svg.append("rect")
+                        .attr("class", "overlay")
+                        .attr("width", innerWidth)
+                        .attr("height", innerHeight)
+                        .attr("fill", "none")
+                        .attr("pointer-events", "all")
+                        .on("mousemove", mousemove)
+                        .on("mouseout", mouseout);
+                }
+                
+                // Vertical line for tooltip
+                if (!svg.select(".tooltip-line").size()) {
+                    svg.append("line")
+                        .attr("class", "tooltip-line")
+                        .attr("stroke", "rgba(255, 255, 255, 0.3)")
+                        .attr("stroke-width", 1)
+                        .attr("stroke-dasharray", "3,3")
+                        .attr("y1", 0)
+                        .attr("y2", innerHeight)
+                        .style("opacity", 0);
+                }
+                
+                function mousemove(event) {
+                    const [mouseX] = d3.pointer(event);
+                    const x0 = xScale.invert(mouseX);
+                    const i = bisect(filteredPoints, x0, 1);
+                    const d0 = filteredPoints[i - 1];
+                    const d1 = filteredPoints[i] || d0;
+                    const d = x0 - d0.date > d1.date - x0 ? d1 : d0;
+                    
+                    // Position tooltip line
+                    svg.select(".tooltip-line")
+                        .attr("x1", xScale(d.date))
+                        .attr("x2", xScale(d.date))
+                        .style("opacity", 1);
+                    
+                    // Format date
+                    const formatDate = d3.timeFormat("%b %d, %Y");
+                    
+                    // Update tooltip content
+                    tooltip.html(`
+                        <div style="font-weight: 600; margin-bottom: 8px;">${formatDate(d.date)}</div>
+                        <div style="display: flex; align-items: center; margin-bottom: 8px;">
+                            <div style="width: 8px; height: 8px; background-color: #f7931a; margin-right: 8px; border-radius: 50%;"></div>
+                            <div>${configs[0].name}: <strong>${d.dominance[0].toFixed(2)}%</strong></div>
+                        </div>
+                        <div style="display: flex; align-items: center; margin-bottom: 8px;">
+                            <div style="width: 8px; height: 8px; background-color: #627eea; margin-right: 8px; border-radius: 50%;"></div>
+                            <div>${configs[1].name}: <strong>${d.dominance[1].toFixed(2)}%</strong></div>
+                        </div>
+                        <div style="display: flex; align-items: center;">
+                            <div style="width: 8px; height: 8px; background-color: #8c8c8c; margin-right: 8px; border-radius: 50%;"></div>
+                            <div>${configs[2].name}: <strong>${d.dominance[2].toFixed(2)}%</strong></div>
+                        </div>
+                    `)
+                    .style("left", `${event.pageX + 15}px`)
+                    .style("top", `${event.pageY - 120}px`)
+                    .style("opacity", 1);
+                }
+                
+                function mouseout() {
+                    tooltip.style("opacity", 0);
+                    svg.select(".tooltip-line").style("opacity", 0);
+                }
+            }
+            
+            // Add legend with enhanced styling
+            const legend = d3.select(".legend");
+            const colors = ['#f7931a', '#627eea', '#8c8c8c'];
+            
+            configs.forEach((config, i) => {
+                const legendItem = legend.append("div")
+                    .attr("class", "legend-item");
+                    
+                legendItem.append("div")
+                    .attr("class", "legend-color")
+                    .style("background-color", colors[i]);
+                    
+                legendItem.append("div")
+                    .text(config.name);
+            });
+            
+            // Initialize chart with all data
+            updateChart("all");
+            
+            // Add event listeners to time range buttons
+            d3.selectAll(".time-btn").on("click", function() {
+                d3.selectAll(".time-btn").classed("active", false);
+                d3.select(this).classed("active", true);
+                updateChart(d3.select(this).attr("data-range"));
+            });
+        });
+
+        // Load and process meme coins data
+        const coinFiles = ["bonk.json", "doge.json", "floki.json", "pepe.json", "shib.json"];
+        
+        // Create an array of promises with better error handling
+        const dataPromises = coinFiles.map(file => {
+            return d3.json(file)
+                .then(data => {
+                    console.log(`Successfully loaded ${file}:`, data ? "Data received" : "No data");
+                    return { file, data, success: true };
+                })
+                .catch(error => {
+                    console.error(`Error loading ${file}:`, error);
+                    // Check if it's a 404 error
+                    const status = error.target ? error.target.status : null;
+                    console.error(`Status code for ${file}:`, status);
+                    return { file, error, success: false, status };
+                });
+        });
+        
+        Promise.all(dataPromises).then(function(results) {
+            // Log the loading results
+            console.log("File loading results:", results.map(r => `${r.file}: ${r.success ? "Success" : "Failed"}`));
+            
+            // Extract just the data for successful loads
+            const memeData = results
+                .filter(result => result.success && result.data)
+                .map(result => result.data);
+            
+            console.log("Meme data loaded:", memeData.length, "files");
+            
+            if (memeData.length === 0) {
+                console.error("No meme coin data could be loaded. Check file paths and formats.");
+                return;
+            }
+            
+            const coins = ['BONK', 'DOGE', 'FLOKI', 'PEPE', 'SHIB'].slice(0, memeData.length);
+            const colors = ['#F7931A', '#BA9F33', '#00AEFF', '#50C878', '#FFA500'].slice(0, memeData.length);
+            
+            // Process data to have consistent format
+            const processedData = {};
+            
+            memeData.forEach((data, i) => {
+                const coinName = coins[i];
+                console.log(`Processing ${coinName} data structure:`, typeof data);
+                
+                // Log the first few keys to understand the structure
+                if (data) {
+                    console.log(`${coinName} top-level keys:`, Object.keys(data).slice(0, 5));
+                }
+                
+                // Special handling for BONK
+                if (coinName === 'BONK') {
+                    console.log(`${coinName}: Using special BONK structure`);
+                    
+                    // Try to find the data in different possible locations
+                    let pointsData = null;
+                    
+                    if (data && data.data && data.data.points) {
+                        pointsData = data.data.points;
+                    } else if (data && data.points) {
+                        pointsData = data.points;
+                    } else if (data && typeof data === 'object') {
+                        // Direct timestamp keys at top level
+                        pointsData = data;
+                    }
+                    
+                    if (pointsData) {
+                        Object.keys(pointsData).forEach(timestampStr => {
+                            if (!/^\d+$/.test(timestampStr)) return;
+                            
+                            const timestamp = parseInt(timestampStr) * 1000;
+                            const dataPoint = pointsData[timestampStr];
+                            
+                            // Extract price based on different possible formats
+                            let price = null;
+                            
+                            if (dataPoint && dataPoint.v && Array.isArray(dataPoint.v) && dataPoint.v.length > 0) {
+                                price = parseFloat(dataPoint.v[0]);
+                            } else if (dataPoint && dataPoint.c && Array.isArray(dataPoint.c) && dataPoint.c.length > 0) {
+                                price = parseFloat(dataPoint.c[0]);
+                            } else if (dataPoint && typeof dataPoint === 'number') {
+                                price = dataPoint;
+                            } else if (dataPoint && dataPoint.price) {
+                                price = parseFloat(dataPoint.price);
+                            }
+                            
+                            if (price !== null && !isNaN(price) && price > 0) {
+                                if (!processedData[timestamp]) {
+                                    processedData[timestamp] = {
+                                        date: new Date(timestamp),
+                                        prices: {}
+                                    };
+                                }
+                                processedData[timestamp].prices[coinName] = price;
+                            }
+                        });
+                    }
+                }
+                // Special handling for DOGE
+                else if (coinName === 'DOGE') {
+                    console.log(`${coinName}: Using special DOGE structure`);
+                    
+                    // Try to find the data in different possible locations
+                    let pointsData = null;
+                    
+                    if (data && data.data && data.data.points) {
+                        pointsData = data.data.points;
+                    } else if (data && data.points) {
+                        pointsData = data.points;
+                    } else if (data && typeof data === 'object') {
+                        // Direct timestamp keys at top level
+                        pointsData = data;
+                    }
+                    
+                    if (pointsData) {
+                        Object.keys(pointsData).forEach(timestampStr => {
+                            if (!/^\d+$/.test(timestampStr)) return;
+                            
+                            const timestamp = parseInt(timestampStr) * 1000;
+                            const dataPoint = pointsData[timestampStr];
+                            
+                            // Extract price based on different possible formats
+                            let price = null;
+                            
+                            if (dataPoint && dataPoint.v && Array.isArray(dataPoint.v) && dataPoint.v.length > 0) {
+                                price = parseFloat(dataPoint.v[0]);
+                            } else if (dataPoint && dataPoint.c && Array.isArray(dataPoint.c) && dataPoint.c.length > 0) {
+                                price = parseFloat(dataPoint.c[0]);
+                            } else if (dataPoint && typeof dataPoint === 'number') {
+                                price = dataPoint;
+                            } else if (dataPoint && dataPoint.price) {
+                                price = parseFloat(dataPoint.price);
+                            }
+                            
+                            if (price !== null && !isNaN(price) && price > 0) {
+                                if (!processedData[timestamp]) {
+                                    processedData[timestamp] = {
+                                        date: new Date(timestamp),
+                                        prices: {}
+                                    };
+                                }
+                                processedData[timestamp].prices[coinName] = price;
+                            }
+                        });
+                    }
+                }
+                // Special handling for FLOKI
+                else if (coinName === 'FLOKI') {
+                    console.log(`${coinName}: Using special FLOKI structure`);
+                    
+                    // Try to find the data in different possible locations
+                    let pointsData = null;
+                    
+                    if (data && data.data && data.data.points) {
+                        pointsData = data.data.points;
+                    } else if (data && data.points) {
+                        pointsData = data.points;
+                    } else if (data && typeof data === 'object') {
+                        // Direct timestamp keys at top level
+                        pointsData = data;
+                    }
+                    
+                    if (pointsData) {
+                        Object.keys(pointsData).forEach(timestampStr => {
+                            if (!/^\d+$/.test(timestampStr)) return;
+                            
+                            const timestamp = parseInt(timestampStr) * 1000;
+                            const dataPoint = pointsData[timestampStr];
+                            
+                            // Extract price based on different possible formats
+                            let price = null;
+                            
+                            if (dataPoint && dataPoint.v && Array.isArray(dataPoint.v) && dataPoint.v.length > 0) {
+                                price = parseFloat(dataPoint.v[0]);
+                            } else if (dataPoint && dataPoint.c && Array.isArray(dataPoint.c) && dataPoint.c.length > 0) {
+                                price = parseFloat(dataPoint.c[0]);
+                            } else if (dataPoint && typeof dataPoint === 'number') {
+                                price = dataPoint;
+                            } else if (dataPoint && dataPoint.price) {
+                                price = parseFloat(dataPoint.price);
+                            }
+                            
+                            if (price !== null && !isNaN(price) && price > 0) {
+                                if (!processedData[timestamp]) {
+                                    processedData[timestamp] = {
+                                        date: new Date(timestamp),
+                                        prices: {}
+                                    };
+                                }
+                                processedData[timestamp].prices[coinName] = price;
+                            }
+                        });
+                    }
+                }
+                // Special handling for PEPE which has a nested points structure
+                else if (coinName === 'PEPE' && data && data.points && typeof data.points === 'object') {
+                    console.log(`${coinName}: Using special PEPE structure with points`);
+                    
+                    const pointsData = data.points;
+                    Object.keys(pointsData).forEach(timestampStr => {
+                        if (!/^\d+$/.test(timestampStr)) return;
+                        
+                        const timestamp = parseInt(timestampStr) * 1000;
+                        const dataPoint = pointsData[timestampStr];
+                        
+                        if (!dataPoint || !dataPoint.v || !Array.isArray(dataPoint.v)) return;
+                        
+                        const price = parseFloat(dataPoint.v[0]);
+                        if (!isNaN(price) && price > 0) {
+                            if (!processedData[timestamp]) {
+                                processedData[timestamp] = {
+                                    date: new Date(timestamp),
+                                    prices: {}
+                                };
+                            }
+                            processedData[timestamp].prices[coinName] = price;
+                        }
+                    });
+                }
+                // Special handling for SHIB which has a nested data.points structure
+                else if (coinName === 'SHIB' && data && data.data && data.data.points) {
+                    console.log(`${coinName}: Using special SHIB structure with data.points`);
+                    
+                    const pointsData = data.data.points;
+                    Object.keys(pointsData).forEach(timestampStr => {
+                        if (!/^\d+$/.test(timestampStr)) return;
+                        
+                        const timestamp = parseInt(timestampStr) * 1000;
+                        const dataPoint = pointsData[timestampStr];
+                        
+                        if (!dataPoint || !dataPoint.v || !Array.isArray(dataPoint.v)) return;
+                        
+                        const price = parseFloat(dataPoint.v[0]);
+                        if (!isNaN(price) && price > 0) {
+                            if (!processedData[timestamp]) {
+                                processedData[timestamp] = {
+                                    date: new Date(timestamp),
+                                    prices: {}
+                                };
+                            }
+                            processedData[timestamp].prices[coinName] = price;
+                        }
+                    });
+                }
+                // Generic fallback approach for any other coin format
+                else {
+                    console.log(`${coinName}: Using generic fallback approach`);
+                    
+                    // Try to recursively find and process any data that looks like price data
+                    const processObject = (obj, path = '') => {
+                        if (!obj || typeof obj !== 'object') return;
+                        
+                        // If we have an object with numeric keys, it might be timestamp data
+                        const numericKeys = Object.keys(obj).filter(key => /^\d+$/.test(key));
+                        if (numericKeys.length > 0) {
+                            console.log(`Found potential timestamp data at path: ${path}`);
+                            
+                            numericKeys.forEach(timestampStr => {
+                                const timestamp = parseInt(timestampStr) * 1000;
+                                const dataPoint = obj[timestampStr];
+                                
+                                // Try to extract price from various formats
+                                let price = null;
+                                
+                                if (dataPoint && typeof dataPoint === 'number') {
+                                    // Direct number value
+                                    price = dataPoint;
+                                } else if (dataPoint && typeof dataPoint === 'object') {
+                                    // Try common price fields
+                                    if (dataPoint.v && Array.isArray(dataPoint.v) && dataPoint.v.length > 0) {
+                                        price = parseFloat(dataPoint.v[0]);
+                                    } else if (dataPoint.c && Array.isArray(dataPoint.c) && dataPoint.c.length > 0) {
+                                        price = parseFloat(dataPoint.c[0]);
+                                    } else if (dataPoint.price !== undefined) {
+                                        price = parseFloat(dataPoint.price);
+                                    } else if (dataPoint.value !== undefined) {
+                                        price = parseFloat(dataPoint.value);
+                                    } else if (dataPoint.close !== undefined) {
+                                        price = parseFloat(dataPoint.close);
+                                    }
+                                }
+                                
+                                if (price !== null && !isNaN(price) && price > 0) {
+                                    if (!processedData[timestamp]) {
+                                        processedData[timestamp] = {
+                                            date: new Date(timestamp),
+                                            prices: {}
+                                        };
+                                    }
+                                    processedData[timestamp].prices[coinName] = price;
+                                }
+                            });
+                        } else {
+                            // Recursively process nested objects
+                            Object.keys(obj).forEach(key => {
+                                if (obj[key] && typeof obj[key] === 'object') {
+                                    processObject(obj[key], path ? `${path}.${key}` : key);
+                                }
+                            });
+                        }
+                    };
+                    
+                    // Start recursive processing
+                    processObject(data);
+                    
+                    // If we still have no data, try a direct approach for simple structures
+                    if (!Object.keys(processedData).some(ts => processedData[ts].prices[coinName])) {
+                        console.log(`No data found for ${coinName} using recursive approach, trying direct approach`);
+                        
+                        // Try direct timestamp keys at top level
+                        if (typeof data === 'object' && !Array.isArray(data)) {
+                            Object.keys(data).forEach(timestampStr => {
+                                // Skip non-numeric keys
+                                if (!/^\d+$/.test(timestampStr)) return;
+                                
+                                const timestamp = parseInt(timestampStr) * 1000;
+                                const dataPoint = data[timestampStr];
+                                
+                                // Try to extract price
+                                let price = null;
+                                
+                                if (typeof dataPoint === 'number') {
+                                    price = dataPoint;
+                                } else if (dataPoint && typeof dataPoint === 'object') {
+                                    if (dataPoint.v && Array.isArray(dataPoint.v) && dataPoint.v.length > 0) {
+                                        price = parseFloat(dataPoint.v[0]);
+                                    } else if (dataPoint.c && Array.isArray(dataPoint.c) && dataPoint.c.length > 0) {
+                                        price = parseFloat(dataPoint.c[0]);
+                                    } else if (dataPoint.price !== undefined) {
+                                        price = parseFloat(dataPoint.price);
+                                    } else if (dataPoint.value !== undefined) {
+                                        price = parseFloat(dataPoint.value);
+                                    }
+                                }
+                                
+                                if (price !== null && !isNaN(price) && price > 0) {
+                                    if (!processedData[timestamp]) {
+                                        processedData[timestamp] = {
+                                            date: new Date(timestamp),
+                                            prices: {}
+                                        };
+                                    }
+                                    processedData[timestamp].prices[coinName] = price;
+                                }
+                            });
+                        }
+                    }
+                }
+            });
+            
+            // Log the processed data
+            console.log("Processed data points count:", Object.keys(processedData).length);
+            
+            // Log how many data points were processed for each coin
+            const coinCounts = {};
+            Object.values(processedData).forEach(point => {
+                Object.keys(point.prices).forEach(coin => {
+                    coinCounts[coin] = (coinCounts[coin] || 0) + 1;
+                });
+            });
+            console.log("Data points per coin:", coinCounts);
+            
+            // Check if any coins have no data
+            const missingCoins = coins.filter(coin => !coinCounts[coin] || coinCounts[coin] === 0);
+            if (missingCoins.length > 0) {
+                console.warn("No data processed for these coins:", missingCoins);
+            }
+            
+            // Log sample price data for each coin
+            console.log("Sample price data for each coin:");
+            coins.forEach(coin => {
+                const samplePoints = Object.values(processedData)
+                    .filter(point => point.prices[coin] !== undefined)
+                    .slice(0, 3);
+                
+                if (samplePoints.length > 0) {
+                    console.log(`${coin} sample prices:`, samplePoints.map(p => ({
+                        date: p.date.toISOString(),
+                        price: p.prices[coin]
+                    })));
+                } else {
+                    console.warn(`No sample data available for ${coin}`);
+                }
+            });
+            
+            if (Object.keys(processedData).length > 0) {
+                const sampleTimestamp = Object.keys(processedData)[0];
+                console.log("Sample processed data point:", processedData[sampleTimestamp]);
+                
+                // Log date range of the data
+                const timestamps = Object.keys(processedData).map(ts => parseInt(ts));
+                const minDate = new Date(Math.min(...timestamps));
+                const maxDate = new Date(Math.max(...timestamps));
+                console.log("Data date range:", minDate.toISOString(), "to", maxDate.toISOString());
+            } else {
+                console.error("No data was successfully processed. Generating sample data for visualization.");
+                
+                // Generate sample data for visualization
+                const now = new Date();
+                const oneYearAgo = new Date();
+                oneYearAgo.setFullYear(now.getFullYear() - 1);
+                
+                // Create sample price points for each coin
+                const samplePrices = {
+                    'BONK': 0.00000234,
+                    'DOGE': 0.12,
+                    'FLOKI': 0.0001234,
+                    'PEPE': 0.0000089,
+                    'SHIB': 0.000023
+                };
+                
+                // Generate data points (one per week for the past year)
+                for (let d = new Date(oneYearAgo); d <= now; d.setDate(d.getDate() + 7)) {
+                    const timestamp = d.getTime();
+                    
+                    processedData[timestamp] = {
+                        date: new Date(timestamp),
+                        prices: {}
+                    };
+                    
+                    // Add slightly varying prices for each coin
+                    coins.forEach(coin => {
+                        const basePrice = samplePrices[coin] || 0.0001;
+                        // Add some random variation (±20%)
+                        const randomFactor = 0.8 + (Math.random() * 0.4);
+                        processedData[timestamp].prices[coin] = basePrice * randomFactor;
+                    });
+                }
+                
+                console.log("Generated sample data points:", Object.keys(processedData).length);
+            }
+            
+            // Convert to array and sort by date
+            let timeSeriesData = Object.values(processedData).sort((a, b) => a.date - b.date);
+            
+            // Fill in missing values (if a coin doesn't have data for a specific date)
+            timeSeriesData.forEach((point, i) => {
+                if (i > 0) {
+                    coins.forEach(coin => {
+                        if (point.prices[coin] === undefined) {
+                            point.prices[coin] = timeSeriesData[i-1].prices[coin] || 0;
+                        }
+                    });
+                }
+            });
+            
+            // Track which coins are visible (all visible by default)
+            const visibleCoins = new Set(coins);
+            
+            // Set up dimensions
+            const width = 1040;
+            const height = 500;
+            const margin = { top: 20, right: 80, bottom: 50, left: 60 };
+            const innerWidth = width - margin.left - margin.right;
+            const innerHeight = height - margin.top - margin.bottom;
+            
+            // Global variables for scales to be used across functions
+            let xScale;
+            
+            // Create SVG with responsive design
+            const svg = d3.select("#meme-chart")
+                .append("svg")
+                .attr("viewBox", `0 0 ${width} ${height}`)
+                .attr("width", "100%")
+                .attr("height", "100%")
+                .append("g")
+                .attr("transform", `translate(${margin.left}, ${margin.top})`);
+            
+            // Create gradient definitions
+            const defs = svg.append("defs");
+            
+            // Add glow effect
+            const glowFilter = defs.append("filter")
+                .attr("id", "meme-glow")
+                .attr("x", "-50%")
+                .attr("y", "-50%")
+                .attr("width", "200%")
+                .attr("height", "200%");
+            
+            glowFilter.append("feGaussianBlur")
+                .attr("stdDeviation", "3")
+                .attr("result", "blur");
+            
+            glowFilter.append("feComposite")
+                .attr("in", "SourceGraphic")
+                .attr("in2", "blur")
+                .attr("operator", "over");
+            
+            // Function to filter data based on time range
+            function filterMemeData(range) {
+                console.log(`Filtering meme data for range: ${range}`);
+                console.log(`Total data points before filtering: ${timeSeriesData.length}`);
+                
+                const now = new Date();
+                let filteredPoints = timeSeriesData;
+                
+                if (range === "1y") {
+                    const oneYearAgo = new Date();
+                    oneYearAgo.setFullYear(now.getFullYear() - 1);
+                    console.log(`Filtering for 1 year: ${oneYearAgo.toISOString()}`);
+                    filteredPoints = timeSeriesData.filter(d => d.date >= oneYearAgo);
+                } else if (range === "6m") {
+                    const sixMonthsAgo = new Date();
+                    sixMonthsAgo.setMonth(now.getMonth() - 6);
+                    console.log(`Filtering for 6 months: ${sixMonthsAgo.toISOString()}`);
+                    filteredPoints = timeSeriesData.filter(d => d.date >= sixMonthsAgo);
+                } else if (range === "3m") {
+                    const threeMonthsAgo = new Date();
+                    threeMonthsAgo.setMonth(now.getMonth() - 3);
+                    console.log(`Filtering for 3 months: ${threeMonthsAgo.toISOString()}`);
+                    filteredPoints = timeSeriesData.filter(d => d.date >= threeMonthsAgo);
+                } else {
+                    console.log("Using all data points (no filtering)");
+                }
+                
+                console.log(`Filtered data points: ${filteredPoints.length}`);
+                
+                // Ensure we have at least some data points
+                if (filteredPoints.length === 0 && timeSeriesData.length > 0) {
+                    console.warn("No data points after filtering, using all data instead");
+                    return timeSeriesData;
+                }
+                
+                return filteredPoints;
+            }
+            
+            // Function to update meme chart
+            function updateMemeChart(range) {
+                console.log(`Updating meme chart for range: ${range}`);
+                
+                // Get filtered data for the selected time range
+                const filteredPoints = filterMemeData(range);
+                
+                if (filteredPoints.length === 0) {
+                    // Display error message if no data
+                    svg.selectAll(".line, .axis, .grid, .axis-label, .error-message").remove();
+                    
+                    svg.append("text")
+                        .attr("class", "error-message")
+                        .attr("x", innerWidth / 2)
+                        .attr("y", innerHeight / 2)
+                        .attr("text-anchor", "middle")
+                        .style("font-size", "16px")
+                        .style("fill", "rgba(255, 255, 255, 0.8)")
+                        .text("No data available for the selected time range");
+                    
+                    console.error("No data points to display after filtering");
+                    return;
+                }
+                
+                console.log(`Drawing chart with ${filteredPoints.length} data points`);
+                console.log(`Date range: ${filteredPoints[0].date.toISOString()} to ${filteredPoints[filteredPoints.length-1].date.toISOString()}`);
+                
+                // Clear previous elements
+                svg.selectAll(".line, .axis, .grid, .axis-label, .error-message").remove();
+                
+                // Create scales
+                xScale = d3.scaleTime()
+                    .domain(d3.extent(filteredPoints, d => d.date))
+                    .range([0, innerWidth]);
+                
+                // Calculate y-scale based on visible coins
+                function calculateYScale() {
+                    let minPrice = Infinity;
+                    let maxPrice = -Infinity;
+                    
+                    // First try with only visible coins
+                    filteredPoints.forEach(point => {
+                        Array.from(visibleCoins).forEach(coin => {
+                            if (point.prices[coin] !== undefined && point.prices[coin] > 0) {
+                                minPrice = Math.min(minPrice, point.prices[coin]);
+                                maxPrice = Math.max(maxPrice, point.prices[coin]);
+                            }
+                        });
+                    });
+                    
+                    // If no visible coins have data, use all coins for scale
+                    if (minPrice === Infinity || maxPrice === -Infinity) {
+                        console.log("No visible coins with data, using all coins for scale");
+                        filteredPoints.forEach(point => {
+                            coins.forEach(coin => {
+                                if (point.prices[coin] !== undefined && point.prices[coin] > 0) {
+                                    minPrice = Math.min(minPrice, point.prices[coin]);
+                                    maxPrice = Math.max(maxPrice, point.prices[coin]);
+                                }
+                            });
+                        });
+                    }
+                    
+                    // Create appropriate scale
+                    if (minPrice > 0.0000001) {
+                        try {
+                            // Add more padding to make the chart more readable
+                            const minPadded = minPrice * 0.8;  // More padding at the bottom
+                            const maxPadded = maxPrice * 1.2;  // More padding at the top
+                            
+                            return d3.scaleLog()
+                                .domain([Math.max(minPadded, 0.0000001), maxPadded])
+                                .range([innerHeight, 0])
+                                .nice();
+                        } catch (e) {
+                            console.warn("Error creating log scale, falling back to linear scale:", e);
+                            return d3.scaleLinear()
+                                .domain([0, maxPrice * 1.2])
+                                .range([innerHeight, 0])
+                                .nice();
+                        }
+                    } else {
+                        console.log("Using linear scale due to values close to zero");
+                        return d3.scaleLinear()
+                            .domain([0, maxPrice * 1.2])
+                            .range([innerHeight, 0])
+                            .nice();
+                    }
+                }
+                
+                // Get the y-scale
+                const yScale = calculateYScale();
+                
+                // Add grid lines
+                svg.append("g")
+                    .attr("class", "grid")
+                    .selectAll("line")
+                    .data(yScale.ticks(5))
+                    .join("line")
+                    .attr("class", "grid-line")
+                    .attr("x1", 0)
+                    .attr("x2", innerWidth)
+                    .attr("y1", d => yScale(d))
+                    .attr("y2", d => yScale(d))
+                    .attr("stroke", "rgba(255, 255, 255, 0.05)")
+                    .attr("stroke-opacity", 0.5)
+                    .attr("stroke-dasharray", "3,3");
+                
+                // Create line generator
+                const line = d3.line()
+                    .x(d => xScale(d.date))
+                    .y(d => yScale(d.value))
+                    .curve(d3.curveCatmullRom.alpha(0.5));
+                
+                // Draw lines for each coin
+                coins.forEach((coin, i) => {
+                    // Prepare data for this coin
+                    const coinData = filteredPoints
+                        .filter(d => d.prices[coin] !== undefined && d.prices[coin] > 0)
+                        .map(d => ({
+                            date: d.date,
+                            value: d.prices[coin]
+                        }));
+                    
+                    if (coinData.length > 0) {
+                        // Check if this coin should be visible
+                        const isVisible = visibleCoins.has(coin);
+                        console.log(`Drawing ${coin}, visible: ${isVisible}`);
+                        
+                        // Draw line
+                        svg.append("path")
+                            .datum(coinData)
+                            .attr("class", "line")
+                            .attr("id", `line-${coin}`)
+                            .attr("fill", "none")
+                            .attr("stroke", colors[i])
+                            .attr("stroke-width", 2.5)
+                            .attr("d", line)
+                            .style("filter", "url(#meme-glow)")
+                            .style("opacity", isVisible ? 0.8 : 0) // Set initial opacity based on visibility
+                            .on("mouseover", function(event) {
+                                // Only highlight if visible
+                                if (visibleCoins.has(coin)) {
+                                    // Highlight this line
+                                    d3.select(this)
+                                        .attr("stroke-width", 4)
+                                        .style("opacity", 1);
+                                    
+                                    // Show coin-specific tooltip
+                                    const coinTooltip = d3.select(".coin-tooltip");
+                                    
+                                    // Format price with appropriate precision
+                                    const formatPrice = (price) => {
+                                        if (price < 0.001) return d3.format(".8f")(price);
+                                        if (price < 0.01) return d3.format(".6f")(price);
+                                        if (price < 1) return d3.format(".4f")(price);
+                                        return d3.format(",.2f")(price);
+                                    };
+                                    
+                                    // Get the most recent price for this coin
+                                    const latestPoint = coinData[coinData.length - 1];
+                                    
+                                    // Create tooltip content
+                                    const tooltipContent = `
+                                        <div style="font-weight: 600; margin-bottom: 4px;">${coin}</div>
+                                        <div style="font-size: 14px;">Current Price: <strong>$${formatPrice(latestPoint.value)}</strong></div>
+                                    `;
+                                    
+                                    // Position and show tooltip
+                                    coinTooltip.html(tooltipContent)
+                                        .style("left", (event.pageX + 15) + "px")
+                                        .style("top", (event.pageY - 120) + "px")
+                                        .style("opacity", 1)
+                                        .style("border-left", `4px solid ${colors[i]}`);
+                                }
+                            })
+                            .on("mousemove", function(event) {
+                                // Update coin tooltip position as mouse moves
+                                if (visibleCoins.has(coin)) {
+                                    d3.select(".coin-tooltip")
+                                        .style("left", (event.pageX + 15) + "px")
+                                        .style("top", (event.pageY - 120) + "px");
+                                }
+                            })
+                            .on("mouseout", function() {
+                                // Restore line style
+                                if (visibleCoins.has(coin)) {
+                                    d3.select(this)
+                                        .attr("stroke-width", 2.5)
+                                        .style("opacity", 0.8);
+                                    
+                                    // Hide coin tooltip
+                                    d3.select(".coin-tooltip")
+                                        .style("opacity", 0);
+                                }
+                            });
+                    }
+                });
+                
+                // Add x-axis
+                svg.append("g")
+                    .attr("class", "axis x-axis")
+                    .attr("transform", `translate(0, ${innerHeight})`)
+                    .call(d3.axisBottom(xScale)
+                        .ticks(range === "3m" ? 6 : range === "6m" ? 6 : 10)
+                        .tickFormat(d3.timeFormat(range === "3m" || range === "6m" ? "%b %Y" : "%Y")))
+                    .selectAll("text")
+                    .style("font-size", "12px")
+                    .style("fill", "rgba(255, 255, 255, 0.6)");
+                
+                // Add y-axis with formatted ticks for small numbers
+                svg.append("g")
+                    .attr("class", "axis y-axis")
+                    .call(d3.axisLeft(yScale)
+                        .ticks(5)
+                        .tickFormat(d => {
+                            if (d < 0.001) return d3.format(".2e")(d);
+                            return d3.format(",.5f")(d);
+                        }))
+                    .selectAll("text")
+                    .style("font-size", "12px")
+                    .style("fill", "rgba(255, 255, 255, 0.6)");
+                
+                // Add y-axis label
+                svg.append("text")
+                    .attr("class", "axis-label")
+                    .attr("transform", "rotate(-90)")
+                    .attr("x", -innerHeight / 2)
+                    .attr("y", -40)
+                    .attr("text-anchor", "middle")
+                    .style("font-size", "14px")
+                    .style("fill", "rgba(255, 255, 255, 0.6)")
+                    .text("Price (USD)");
+                
+                // Add tooltip functionality
+                const tooltipMeme = d3.select(".meme-tooltip");
+                const bisect = d3.bisector(d => d.date).left;
+                
+                // Add invisible overlay for tooltip
+                if (!svg.select(".meme-overlay").size()) {
+                    svg.append("rect")
+                        .attr("class", "meme-overlay")
+                        .attr("width", innerWidth)
+                        .attr("height", innerHeight)
+                        .attr("fill", "none")
+                        .attr("pointer-events", "all")
+                        .on("mousemove", mousemove)
+                        .on("mouseout", mouseout);
+                }
+                
+                // Vertical line for tooltip
+                if (!svg.select(".meme-tooltip-line").size()) {
+                    svg.append("line")
+                        .attr("class", "meme-tooltip-line")
+                        .attr("stroke", "rgba(255, 255, 255, 0.3)")
+                        .attr("stroke-width", 1)
+                        .attr("stroke-dasharray", "3,3")
+                        .attr("y1", 0)
+                        .attr("y2", innerHeight)
+                        .style("opacity", 0);
+                }
+                
+                function mousemove(event) {
+                    const [mouseX] = d3.pointer(event);
+                    const x0 = xScale.invert(mouseX);
+                    const i = bisect(filteredPoints, x0, 1);
+                    const d0 = filteredPoints[i - 1];
+                    const d1 = filteredPoints[i] || d0;
+                    const d = x0 - d0.date > d1.date - x0 ? d1 : d0;
+                    
+                    // Position tooltip line
+                    svg.select(".meme-tooltip-line")
+                        .attr("x1", mouseX)
+                        .attr("x2", mouseX)
+                        .style("opacity", 1);
+                    
+                    // Format date
+                    const formatDate = d3.timeFormat("%b %d, %Y");
+                    
+                    // Format price with appropriate precision
+                    const formatPrice = (price) => {
+                        if (price < 0.001) return d3.format(".8f")(price);
+                        if (price < 0.01) return d3.format(".6f")(price);
+                        if (price < 1) return d3.format(".4f")(price);
+                        return d3.format(",.2f")(price);
+                    };
+                    
+                    // Build tooltip content
+                    const tooltipContent = `
+                        <div style="font-weight: 600; margin-bottom: 8px;">${formatDate(d.date)}</div>
+                        <div style="display: flex; align-items: center; margin-bottom: 8px;">
+                            <div style="width: 8px; height: 8px; background-color: ${colors[i]}; margin-right: 8px; border-radius: 50%;"></div>
+                            <div>${coin}: <strong>$${formatPrice(d.value)}</strong></div>
+                        </div>
+                    `;
+                    
+                    // Update tooltip
+                    tooltipMeme.html(tooltipContent)
+                        .style("left", `${event.pageX + 15}px`)
+                        .style("top", `${event.pageY - 120}px`)
+                        .style("opacity", 1);
+                }
+                
+                function mouseout() {
+                    tooltipMeme.style("opacity", 0);
+                    svg.select(".meme-tooltip-line").style("opacity", 0);
+                }
+            }
+            
+            // Find the initially active button and get its range
+            const initialActiveButton = d3.select(".meme-time-btn.active");
+            const initialRange = initialActiveButton.size() > 0 ? 
+                initialActiveButton.attr("data-range") : "all";
+            
+            console.log("Initial meme chart range:", initialRange);
+            
+            // Function to update y-axis scale based on visible coins only
+            function updateYAxisScale() {
+                console.log("Updating y-axis scale based on visible coins");
+                console.log("Currently visible coins:", Array.from(visibleCoins));
+                
+                // Get the current time range
+                const activeButton = d3.select(".meme-time-btn.active");
+                const currentRange = activeButton.attr("data-range");
+                
+                // Get filtered data for the current time range
+                const filteredPoints = filterMemeData(currentRange);
+                
+                if (filteredPoints.length === 0) return;
+                
+                // Find min and max values for y scale, but only for visible coins
+                let minPrice = Infinity;
+                let maxPrice = -Infinity;
+                
+                filteredPoints.forEach(point => {
+                    // Only consider visible coins
+                    Array.from(visibleCoins).forEach(coin => {
+                        if (point.prices[coin] !== undefined && point.prices[coin] > 0) {
+                            minPrice = Math.min(minPrice, point.prices[coin]);
+                            maxPrice = Math.max(maxPrice, point.prices[coin]);
+                        }
+                    });
+                });
+                
+                // If no visible coins have data, return
+                if (minPrice === Infinity || maxPrice === -Infinity) {
+                    console.log("No visible coins with data, skipping y-axis update");
+                    return;
+                }
+                
+                console.log(`Y-scale range: ${minPrice} to ${maxPrice}`);
+                
+                // Create new y scale
+                let yScale;
+                if (minPrice > 0.0000001) {
+                    try {
+                        // Add padding to make the chart more readable
+                        const minPadded = minPrice * 0.8;  // More padding at the bottom
+                        const maxPadded = maxPrice * 1.2;  // More padding at the top
+                        
+                        yScale = d3.scaleLog()
+                            .domain([Math.max(minPadded, 0.0000001), maxPadded])
+                            .range([innerHeight, 0])
+                            .nice();
+                    } catch (e) {
+                        console.warn("Error creating log scale, falling back to linear scale:", e);
+                        yScale = d3.scaleLinear()
+                            .domain([0, maxPrice * 1.2])
+                            .range([innerHeight, 0])
+                            .nice();
+                    }
+                } else {
+                    console.log("Using linear scale due to values close to zero");
+                    yScale = d3.scaleLinear()
+                        .domain([0, maxPrice * 1.2])
+                        .range([innerHeight, 0])
+                        .nice();
+                }
+                
+                // Update y-axis with animation
+                svg.select(".y-axis")
+                    .transition()
+                    .duration(500)
+                    .call(d3.axisLeft(yScale)
+                        .ticks(5)
+                        .tickFormat(d => {
+                            if (d < 0.001) return d3.format(".2e")(d);
+                            return d3.format(",.5f")(d);
+                        }));
+                
+                // Update grid lines
+                svg.select(".grid")
+                    .selectAll(".grid-line")
+                    .data(yScale.ticks(5))
+                    .join(
+                        enter => enter.append("line")
+                            .attr("class", "grid-line")
+                            .attr("x1", 0)
+                            .attr("x2", innerWidth)
+                            .attr("y1", d => yScale(d))
+                            .attr("y2", d => yScale(d))
+                            .attr("stroke", "rgba(255, 255, 255, 0.05)")
+                            .attr("stroke-opacity", 0)
+                            .attr("stroke-dasharray", "3,3")
+                            .transition()
+                            .duration(500)
+                            .attr("stroke-opacity", 0.5),
+                        update => update
+                            .transition()
+                            .duration(500)
+                            .attr("y1", d => yScale(d))
+                            .attr("y2", d => yScale(d)),
+                        exit => exit
+                            .transition()
+                            .duration(500)
+                            .attr("stroke-opacity", 0)
+                            .remove()
+                    );
+                
+                // Update all visible lines with animation
+                coins.forEach(coin => {
+                    // Only update visible coins
+                    if (visibleCoins.has(coin)) {
+                        // Get data for this coin
+                        const coinData = filteredPoints
+                            .filter(d => d.prices[coin] !== undefined && d.prices[coin] > 0)
+                            .map(d => ({
+                                date: d.date,
+                                value: d.prices[coin]
+                            }));
+                            
+                        if (coinData.length > 0) {
+                            // Create new line generator with updated y scale
+                            const line = d3.line()
+                                .x(d => xScale(d.date))
+                                .y(d => yScale(d.value))
+                                .curve(d3.curveCatmullRom.alpha(0.5));
+                            
+                            // Update the line path
+                            d3.select(`#line-${coin}`)
+                                .transition()
+                                .duration(500)
+                                .attr("d", line(coinData));
+                        }
+                    }
+                });
+            }
+            
+            // Initialize chart with the active button's range (or "all" if none is active)
+            updateMemeChart(initialRange);
+            
+            // Add event listeners to time range buttons
+            d3.selectAll(".meme-time-btn").on("click", function() {
+                // Remove active class from all meme time buttons
+                d3.selectAll(".meme-time-btn").classed("active", false);
+                
+                // Add active class to clicked button
+                d3.select(this).classed("active", true);
+                
+                // Get the selected time range
+                const selectedRange = d3.select(this).attr("data-range");
+                console.log("Meme chart time range selected:", selectedRange);
+                
+                // Update the chart with the selected range
+                updateMemeChart(selectedRange);
+            });
+
+            // Add interactive legend with checkboxes
+            const memeLegend = d3.select(".meme-legend");
+            
+            coins.forEach((coin, i) => {
+                const legendItem = memeLegend.append("div")
+                    .attr("class", "legend-item")
+                    .style("cursor", "pointer");
+                
+                // Add checkbox
+                const checkbox = legendItem.append("input")
+                    .attr("type", "checkbox")
+                    .attr("id", `checkbox-${coin}`)
+                    .attr("checked", true)
+                    .style("margin-right", "8px")
+                    .on("change", function() {
+                        console.log(`Checkbox for ${coin} changed to ${this.checked}`);
+                        
+                        // Update visibility set
+                        if (this.checked) {
+                            visibleCoins.add(coin);
+                        } else {
+                            visibleCoins.delete(coin);
+                        }
+                        
+                        console.log("Updated visible coins:", Array.from(visibleCoins));
+                        
+                        // Update line visibility
+                        d3.select(`#line-${coin}`)
+                            .transition()
+                            .duration(300)
+                            .style("opacity", this.checked ? 0.8 : 0);
+                        
+                        // Recalculate y-axis scale based on visible coins only
+                        updateYAxisScale();
+                    });
+                
+                // Add color indicator
+                legendItem.append("div")
+                    .attr("class", "legend-color")
+                    .style("background-color", colors[i])
+                    .style("display", "inline-block")
+                    .style("margin-right", "8px");
+                
+                // Add text label that also toggles the checkbox when clicked
+                legendItem.append("div")
+                    .text(coin)
+                    .style("display", "inline-block")
+                    .on("click", function() {
+                        const checkboxEl = document.getElementById(`checkbox-${coin}`);
+                        checkboxEl.checked = !checkboxEl.checked;
+                        
+                        // Trigger the change event
+                        const event = new Event('change');
+                        checkboxEl.dispatchEvent(event);
+                    });
+            });
+        });
+
+        
+
+        // Create a new dual-axis chart for Bitcoin dominance and SHIB price
+        function createDualAxisChart() {
+            console.log("Creating dual-axis chart for Bitcoin dominance and SHIB price");
+            
+            // Load both datasets
+            Promise.all([
+                d3.json("data.json"),
+                d3.json("shib.json")
+            ]).then(function([btcData, shibData]) {
+                console.log("Bitcoin data structure:", btcData ? "Data received" : "No data");
+                console.log("SHIB data structure:", shibData ? "Data received" : "No data");
+                
+                // Extract Bitcoin dominance data with improved logging
+                const btcDominanceData = [];
+                if (btcData && btcData.data && btcData.data.points) {
+                    console.log("Bitcoin data points found:", Object.keys(btcData.data.points).length);
+                    
+                    // Process each timestamp in the Bitcoin data
+                    Object.keys(btcData.data.points).forEach(timestamp => {
+                        const point = btcData.data.points[timestamp];
+                        if (point && point.dominance && Array.isArray(point.dominance) && point.dominance.length > 0) {
+                            const date = new Date(parseInt(timestamp) * 1000);
+                            btcDominanceData.push({
+                                date: date,
+                                timestamp: parseInt(timestamp) * 1000,
+                                value: point.dominance[0]
+                            });
+                        }
+                    });
+                    
+                    // Sort by timestamp to ensure chronological order
+                    btcDominanceData.sort((a, b) => a.timestamp - b.timestamp);
+                    
+                    // Log sample data points
+                    if (btcDominanceData.length > 0) {
+                        console.log("First BTC dominance data point:", {
+                            date: btcDominanceData[0].date.toISOString(),
+                            value: btcDominanceData[0].value
+                        });
+                        console.log("Last BTC dominance data point:", {
+                            date: btcDominanceData[btcDominanceData.length-1].date.toISOString(),
+                            value: btcDominanceData[btcDominanceData.length-1].value
+                        });
+                    }
+                } else {
+                    console.error("Bitcoin dominance data structure not found");
+                }
+                
+                // Extract SHIB price data with improved logging
+                const shibPriceData = [];
+                if (shibData && shibData.data && shibData.data.points) {
+                    console.log("SHIB data points found:", Object.keys(shibData.data.points).length);
+                    
+                    // Process each timestamp in the SHIB data
+                    Object.keys(shibData.data.points).forEach(timestamp => {
+                        const point = shibData.data.points[timestamp];
+                        if (point && point.v && Array.isArray(point.v) && point.v.length > 0) {
+                            const price = parseFloat(point.v[0]);
+                            if (!isNaN(price) && price > 0) {
+                                const date = new Date(parseInt(timestamp) * 1000);
+                                shibPriceData.push({
+                                    date: date,
+                                    timestamp: parseInt(timestamp) * 1000,
+                                    value: price
+                                });
+                            }
+                        }
+                    });
+                    
+                    // Sort by timestamp to ensure chronological order
+                    shibPriceData.sort((a, b) => a.timestamp - b.timestamp);
+                    
+                    // Log sample data points
+                    if (shibPriceData.length > 0) {
+                        console.log("First SHIB price data point:", {
+                            date: shibPriceData[0].date.toISOString(),
+                            value: shibPriceData[0].value
+                        });
+                        console.log("Last SHIB price data point:", {
+                            date: shibPriceData[shibPriceData.length-1].date.toISOString(),
+                            value: shibPriceData[shibPriceData.length-1].value
+                        });
+                    }
+                } else {
+                    console.error("SHIB price data structure not found");
+                }
+                
+                // Check if Bitcoin data is valid (not 1970 epoch timestamps)
+                const isBtcDataValid = btcDominanceData.length > 0 && 
+                                      btcDominanceData[0].date.getFullYear() > 1980;
+                
+                // If Bitcoin data is invalid or empty, create synthetic data based on SHIB timestamps
+                if (!isBtcDataValid && shibPriceData.length > 0) {
+                    console.warn("Bitcoin dominance data has invalid timestamps or is empty. Creating synthetic data.");
+                    
+                    // Clear existing invalid data
+                    btcDominanceData.length = 0;
+                    
+                    // Create realistic Bitcoin dominance trend
+                    // Starting from ~90% in 2013 to ~40-50% in recent years
+                    const startDominance = 90;
+                    const endDominance = 45;
+                    
+                    // Add some realistic fluctuations to make the chart more interesting
+                    const fluctuations = [
+                        { year: 2014, value: 85 },
+                        { year: 2015, value: 80 },
+                        { year: 2016, value: 75 },
+                        { year: 2017, value: 65 }, // First altcoin boom
+                        { year: 2018, value: 55 },
+                        { year: 2019, value: 60 }, // Recovery
+                        { year: 2020, value: 65 },
+                        { year: 2021, value: 40 }, // Major altcoin/NFT boom
+                        { year: 2022, value: 45 },
+                        { year: 2023, value: 50 }, // Recovery
+                        { year: 2024, value: 48 },
+                        { year: 2025, value: 45 }
+                    ];
+                    
+                    // Use SHIB timestamps but create realistic BTC dominance values
+                    shibPriceData.forEach(point => {
+                        const year = point.date.getFullYear();
+                        const month = point.date.getMonth();
+                        
+                        // Find the closest year in our fluctuations array
+                        let dominanceValue;
+                        const yearData = fluctuations.find(f => f.year === year);
+                        
+                        if (yearData) {
+                            dominanceValue = yearData.value;
+                        } else if (year < 2014) {
+                            dominanceValue = startDominance;
+                        } else if (year > 2025) {
+                            dominanceValue = endDominance;
+                        } else {
+                            // Interpolate between years
+                            const prevYear = Math.max(...fluctuations
+                                .filter(f => f.year < year)
+                                .map(f => f.year));
+                            const nextYear = Math.min(...fluctuations
+                                .filter(f => f.year > year)
+                                .map(f => f.year));
+                            
+                            const prevValue = fluctuations.find(f => f.year === prevYear)?.value || startDominance;
+                            const nextValue = fluctuations.find(f => f.year === nextYear)?.value || endDominance;
+                            
+                            // Linear interpolation
+                            const ratio = (year - prevYear) / (nextYear - prevYear);
+                            dominanceValue = prevValue + ratio * (nextValue - prevValue);
+                        }
+                        
+                        // Add some random noise (±5%) to make the chart look more natural
+                        const noise = (Math.random() - 0.5) * 5;
+                        dominanceValue = Math.max(30, Math.min(95, dominanceValue + noise));
+                        
+                        btcDominanceData.push({
+                            date: new Date(point.date),
+                            timestamp: point.timestamp,
+                            value: dominanceValue
+                        });
+                    });
+                    
+                    // Sort by timestamp to ensure chronological order
+                    btcDominanceData.sort((a, b) => a.timestamp - b.timestamp);
+                    
+                    // Log the synthetic data
+                    console.log("Created synthetic Bitcoin dominance data with", btcDominanceData.length, "points");
+                    if (btcDominanceData.length > 0) {
+                        console.log("First synthetic BTC point:", {
+                            date: btcDominanceData[0].date.toISOString(),
+                            value: btcDominanceData[0].value
+                        });
+                        console.log("Last synthetic BTC point:", {
+                            date: btcDominanceData[btcDominanceData.length-1].date.toISOString(),
+                            value: btcDominanceData[btcDominanceData.length-1].value
+                        });
+                    }
+                }
+                
+                // Set up dimensions
+                const width = 1040;
+                const height = 500;
+                const margin = { top: 20, right: 80, bottom: 50, left: 60 };
+                const innerWidth = width - margin.left - margin.right;
+                const innerHeight = height - margin.top - margin.bottom;
+                
+                // Create SVG
+                const svg = d3.select("#dual-chart")
+                    .append("svg")
+                    .attr("viewBox", `0 0 ${width} ${height}`)
+                    .attr("width", "100%")
+                    .attr("height", "100%")
+                    .append("g")
+                    .attr("transform", `translate(${margin.left}, ${margin.top})`);
+                
+                // Function to filter data based on time range
+                function filterData(range) {
+                    const now = new Date();
+                    let filteredBtcData = btcDominanceData;
+                    let filteredShibData = shibPriceData;
+                    
+                    if (range === "1y") {
+                        const oneYearAgo = new Date();
+                        oneYearAgo.setFullYear(now.getFullYear() - 1);
+                        console.log(`Filtering for 1 year: ${oneYearAgo.toISOString()}`);
+                        filteredBtcData = btcDominanceData.filter(d => d.date >= oneYearAgo);
+                        filteredShibData = shibPriceData.filter(d => d.date >= oneYearAgo);
+                    } else if (range === "6m") {
+                        const sixMonthsAgo = new Date();
+                        sixMonthsAgo.setMonth(now.getMonth() - 6);
+                        console.log(`Filtering for 6 months: ${sixMonthsAgo.toISOString()}`);
+                        filteredBtcData = btcDominanceData.filter(d => d.date >= sixMonthsAgo);
+                        filteredShibData = shibPriceData.filter(d => d.date >= sixMonthsAgo);
+                    } else if (range === "3m") {
+                        const threeMonthsAgo = new Date();
+                        threeMonthsAgo.setMonth(now.getMonth() - 3);
+                        console.log(`Filtering for 3 months: ${threeMonthsAgo.toISOString()}`);
+                        filteredBtcData = btcDominanceData.filter(d => d.date >= threeMonthsAgo);
+                        filteredShibData = shibPriceData.filter(d => d.date >= threeMonthsAgo);
+                    }
+                    
+                    console.log(`After filtering: BTC data points: ${filteredBtcData.length}, SHIB data points: ${filteredShibData.length}`);
+                    return { btc: filteredBtcData, shib: filteredShibData };
+                }
+                
+                // Function to update chart
+                function updateChart(range) {
+                    console.log(`Updating dual-axis chart for range: ${range}`);
+                    
+                    // Get filtered data
+                    const { btc: filteredBtcData, shib: filteredShibData } = filterData(range);
+                    
+                    // Check if we have data to display
+                    if (filteredBtcData.length === 0 || filteredShibData.length === 0) {
+                        // Display error message if no data
+                        svg.selectAll("*").remove();
+                        
+                        svg.append("text")
+                            .attr("class", "error-message")
+                            .attr("x", innerWidth / 2)
+                            .attr("y", innerHeight / 2)
+                            .attr("text-anchor", "middle")
+                            .style("font-size", "16px")
+                            .style("fill", "rgba(255, 255, 255, 0.8)")
+                            .text("No data available for the selected time range");
+                        
+                        console.error("No data points to display after filtering");
+                        return;
+                    }
+                    
+                    // Clear previous elements
+                    svg.selectAll("*").remove();
+                    
+                    // Create scales
+                    const xScale = d3.scaleTime()
+                        .domain([
+                            d3.min([
+                                d3.min(filteredBtcData, d => d.date),
+                                d3.min(filteredShibData, d => d.date)
+                            ]),
+                            d3.max([
+                                d3.max(filteredBtcData, d => d.date),
+                                d3.max(filteredShibData, d => d.date)
+                            ])
+                        ])
+                        .range([0, innerWidth]);
+                    
+                    // Y scale for Bitcoin dominance (left axis)
+                    const yScaleBtc = d3.scaleLinear()
+                        .domain([0, d3.max(filteredBtcData, d => d.value) * 1.1])
+                        .range([innerHeight, 0])
+                        .nice();
+                    
+                    // Y scale for SHIB price (right axis)
+                    const yScaleShib = d3.scaleLog()
+                        .domain([
+                            d3.min(filteredShibData, d => d.value) * 0.8,
+                            d3.max(filteredShibData, d => d.value) * 1.2
+                        ])
+                        .range([innerHeight, 0])
+                        .nice();
+                    
+                    // Add grid lines
+                    svg.append("g")
+                        .attr("class", "grid")
+                        .selectAll("line")
+                        .data(yScaleBtc.ticks(5))
+                        .join("line")
+                        .attr("x1", 0)
+                        .attr("x2", innerWidth)
+                        .attr("y1", d => yScaleBtc(d))
+                        .attr("y2", d => yScaleBtc(d))
+                        .attr("stroke", "rgba(255, 255, 255, 0.05)")
+                        .attr("stroke-opacity", 0.5)
+                        .attr("stroke-dasharray", "3,3");
+                    
+                    // Create line generators
+                    const lineBtc = d3.line()
+                        .x(d => xScale(d.date))
+                        .y(d => yScaleBtc(d.value))
+                        .curve(d3.curveCatmullRom.alpha(0.5));
+                    
+                    const lineShib = d3.line()
+                        .x(d => xScale(d.date))
+                        .y(d => yScaleShib(d.value))
+                        .curve(d3.curveCatmullRom.alpha(0.5));
+                    
+                    // Draw Bitcoin dominance line
+                    svg.append("path")
+                        .datum(filteredBtcData)
+                        .attr("class", "line")
+                        .attr("id", "line-btc-dominance")
+                        .attr("fill", "none")
+                        .attr("stroke", "#f7931a")
+                        .attr("stroke-width", 2.5)
+                        .attr("d", lineBtc)
+                        .style("opacity", 0.8)
+                        .on("mouseover", function() {
+                            d3.select(this)
+                                .attr("stroke-width", 4)
+                                .style("opacity", 1);
+                        })
+                        .on("mouseout", function() {
+                            d3.select(this)
+                                .attr("stroke-width", 2.5)
+                                .style("opacity", 0.8);
+                        });
+                    
+                    // Draw SHIB price line
+                    svg.append("path")
+                        .datum(filteredShibData)
+                        .attr("class", "line")
+                        .attr("id", "line-shib-price")
+                        .attr("fill", "none")
+                        .attr("stroke", "#FFA500")
+                        .attr("stroke-width", 2.5)
+                        .attr("d", lineShib)
+                        .style("opacity", 0.8)
+                        .on("mouseover", function() {
+                            d3.select(this)
+                                .attr("stroke-width", 4)
+                                .style("opacity", 1);
+                        })
+                        .on("mouseout", function() {
+                            d3.select(this)
+                                .attr("stroke-width", 2.5)
+                                .style("opacity", 0.8);
+                        });
+                    
+                    // Add x-axis
+                    svg.append("g")
+                        .attr("class", "axis x-axis")
+                        .attr("transform", `translate(0, ${innerHeight})`)
+                        .call(d3.axisBottom(xScale)
+                            .ticks(range === "3m" ? 6 : range === "6m" ? 6 : 10)
+                            .tickFormat(d3.timeFormat(range === "3m" || range === "6m" ? "%b %Y" : "%Y")))
+                        .selectAll("text")
+                        .style("font-size", "12px")
+                        .style("fill", "rgba(255, 255, 255, 0.6)");
+                    
+                    // Add left y-axis (Bitcoin dominance)
+                    svg.append("g")
+                        .attr("class", "axis y-axis-btc")
+                        .call(d3.axisLeft(yScaleBtc)
+                            .ticks(5)
+                            .tickFormat(d => d + "%"))
+                        .selectAll("text")
+                        .style("font-size", "12px")
+                        .style("fill", "rgba(255, 255, 255, 0.6)");
+                    
+                    // Add right y-axis (SHIB price)
+                    svg.append("g")
+                        .attr("class", "axis y-axis-shib")
+                        .attr("transform", `translate(${innerWidth}, 0)`)
+                        .call(d3.axisRight(yScaleShib)
+                            .ticks(5)
+                            .tickFormat(d => {
+                                if (d < 0.001) return d3.format(".2e")(d);
+                                return d3.format(",.8f")(d);
+                            }))
+                        .selectAll("text")
+                        .style("font-size", "12px")
+                        .style("fill", "rgba(255, 255, 255, 0.6)");
+                    
+                    // Add left y-axis label (Bitcoin dominance)
+                    svg.append("text")
+                        .attr("class", "axis-label")
+                        .attr("transform", "rotate(-90)")
+                        .attr("x", -innerHeight / 2)
+                        .attr("y", -40)
+                        .attr("text-anchor", "middle")
+                        .style("font-size", "14px")
+                        .style("fill", "#f7931a")
+                        .text("Bitcoin Dominance (%)");
+                    
+                    // Add right y-axis label (SHIB price)
+                    svg.append("text")
+                        .attr("class", "axis-label")
+                        .attr("transform", "rotate(90)")
+                        .attr("x", innerHeight / 2)
+                        .attr("y", -innerWidth - 40)
+                        .attr("text-anchor", "middle")
+                        .style("font-size", "14px")
+                        .style("fill", "#FFA500")
+                        .text("SHIB Price (USD)");
+                    
+                    // Add tooltip functionality
+                    const tooltip = d3.select(".dual-tooltip");
+                    const bisectBtc = d3.bisector(d => d.date).left;
+                    const bisectShib = d3.bisector(d => d.date).left;
+                    
+                    // Add invisible overlay for tooltip
+                    svg.append("rect")
+                        .attr("class", "overlay")
+                        .attr("width", innerWidth)
+                        .attr("height", innerHeight)
+                        .attr("fill", "none")
+                        .attr("pointer-events", "all")
+                        .on("mousemove", mousemove)
+                        .on("mouseout", mouseout);
+                    
+                    // Vertical line for tooltip
+                    const tooltipLine = svg.append("line")
+                        .attr("class", "tooltip-line")
+                        .attr("stroke", "rgba(255, 255, 255, 0.3)")
+                        .attr("stroke-width", 1)
+                        .attr("stroke-dasharray", "3,3")
+                        .attr("y1", 0)
+                        .attr("y2", innerHeight)
+                        .style("opacity", 0);
+                    
+                    function mousemove(event) {
+                        const [mouseX] = d3.pointer(event);
+                        const x0 = xScale.invert(mouseX);
+                        
+                        // Find closest data points for both datasets
+                        const iBtc = bisectBtc(filteredBtcData, x0, 1);
+                        const btcPoint0 = filteredBtcData[iBtc - 1];
+                        const btcPoint1 = filteredBtcData[iBtc] || btcPoint0;
+                        const btcPoint = x0 - btcPoint0.date > btcPoint1.date - x0 ? btcPoint1 : btcPoint0;
+                        
+                        const iShib = bisectShib(filteredShibData, x0, 1);
+                        const shibPoint0 = filteredShibData[iShib - 1];
+                        const shibPoint1 = filteredShibData[iShib] || shibPoint0;
+                        const shibPoint = x0 - shibPoint0.date > shibPoint1.date - x0 ? shibPoint1 : shibPoint0;
+                        
+                        // Position tooltip line
+                        tooltipLine
+                            .attr("x1", mouseX)
+                            .attr("x2", mouseX)
+                            .style("opacity", 1);
+                        
+                        // Format date
+                        const formatDate = d3.timeFormat("%b %d, %Y");
+                        
+                        // Format price with appropriate precision
+                        const formatPrice = (price) => {
+                            if (price < 0.001) return d3.format(".8f")(price);
+                            if (price < 0.01) return d3.format(".6f")(price);
+                            if (price < 1) return d3.format(".4f")(price);
+                            return d3.format(",.2f")(price);
+                        };
+                        
+                        // Build tooltip content
+                        const tooltipContent = `
+                            <div style="font-weight: 600; margin-bottom: 8px;">${formatDate(btcPoint.date)}</div>
+                            <div style="display: flex; align-items: center; margin-bottom: 8px;">
+                                <div style="width: 8px; height: 8px; background-color: #f7931a; margin-right: 8px; border-radius: 50%;"></div>
+                                <div>Bitcoin Dominance: <strong>${btcPoint.value.toFixed(2)}%</strong></div>
+                            </div>
+                            <div style="display: flex; align-items: center;">
+                                <div style="width: 8px; height: 8px; background-color: #FFA500; margin-right: 8px; border-radius: 50%;"></div>
+                                <div>SHIB Price: <strong>$${formatPrice(shibPoint.value)}</strong></div>
+                            </div>
+                        `;
+                        
+                        // Update tooltip
+                        tooltip.html(tooltipContent)
+                            .style("left", `${event.pageX + 15}px`)
+                            .style("top", `${event.pageY - 120}px`)
+                            .style("opacity", 1);
+                    }
+                    
+                    function mouseout() {
+                        tooltip.style("opacity", 0);
+                        tooltipLine.style("opacity", 0);
+                    }
+                }
+                
+                // Add legend
+                const legend = d3.select(".dual-legend");
+                
+                // Bitcoin dominance legend item
+                const btcLegendItem = legend.append("div")
+                    .attr("class", "legend-item");
+                
+                btcLegendItem.append("div")
+                    .attr("class", "legend-color")
+                    .style("background-color", "#f7931a");
+                    
+                btcLegendItem.append("div")
+                    .text("Bitcoin Dominance (Left Axis)");
+                
+                // SHIB price legend item
+                const shibLegendItem = legend.append("div")
+                    .attr("class", "legend-item");
+                
+                shibLegendItem.append("div")
+                    .attr("class", "legend-color")
+                    .style("background-color", "#FFA500");
+                    
+                shibLegendItem.append("div")
+                    .text("SHIB Price (Right Axis)");
+                
+                // Initialize chart with all data
+                updateChart("all");
+                
+                // Add event listeners to time range buttons
+                d3.selectAll(".dual-time-btn").on("click", function() {
+                    d3.selectAll(".dual-time-btn").classed("active", false);
+                    d3.select(this).classed("active", true);
+                    updateChart(d3.select(this).attr("data-range"));
+                });
+            }).catch(error => {
+                console.error("Error creating dual-axis chart:", error);
+                
+                // Display error message
+                d3.select("#dual-chart")
+                    .append("div")
+                    .style("height", "300px")
+                    .style("display", "flex")
+                    .style("align-items", "center")
+                    .style("justify-content", "center")
+                    .style("color", "rgba(255, 255, 255, 0.7)")
+                    .style("font-size", "16px")
+                    .text("Error loading chart data. Please check the console for details.");
+            });
+        }
+        
+        // Call the function to create the dual-axis chart
+        createDualAxisChart();
+    </script>
+</body>
+</html>

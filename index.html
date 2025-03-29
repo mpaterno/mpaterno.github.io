@@ -1,46 +1,63 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-
-  <!-- Basic Page Needs
-  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
-  <meta charset="utf-8">
-  <title>Your page title here :)</title>
-  <meta name="description" content="">
-  <meta name="author" content="">
-
-  <!-- Mobile Specific Metas
-  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-
-  <!-- FONT
-  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
-  <link href="//fonts.googleapis.com/css?family=Raleway:400,300,600" rel="stylesheet" type="text/css">
-
-  <!-- CSS
-  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
-  <link rel="stylesheet" href="css/normalize.css">
-  <link rel="stylesheet" href="css/skeleton.css">
-
-  <!-- Favicon
-  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
-  <link rel="icon" type="image/png" href="images/favicon.png">
-
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meme Coin Dashboard</title>
 </head>
 <body>
+    <div class="container">
+        <header class="header">
+            <h1>Meme Coin Dashboard</h1>
+        </header>
+        
+        <!-- X Engagement Graph -->
+        <h2>X Engagement Graph</h2>
+        <div id="xEngagementGraph"></div>
 
-  <!-- Primary Page Layout
-  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
-  <div class="container">
-    <div class="row" style="text-align: center;">
-      <div style="margin-top: 5%; "></div>
-      <p>When contacting support, be sure to have your employee and device ID at hand.</p>
-        <a class="button button-primary" href="wsonehub://home">Navigate to Hub Support</a>
-      </div>
+        <!-- Bitcoin Dominance -->
+        <h2>Bitcoin Dominance</h2>
+        <div id="bitcoinDominanceChart"></div>
+
+        <!-- Doge Price Graph -->
+        <h2>Doge Price Graph</h2>
+        <div id="dogePriceGraph"></div>
+
+
+
+            <div class="chart-card">
+                <h2>Meme Coin Prices</h2>
+                <div class="time-selector">
+                    <button class="time-button active">3M</button>
+                    <button class="time-button">1Y</button>
+                    <button class="time-button">5Y</button>
+                </div>
+                <div class="chart-container" id="priceChart"></div>
+            </div>
+            <div class="chart-card">
+                <h2>Price Change Graph</h2>
+                <div id="priceChangeGraph"></div>
+            </div>
+        </div>
     </div>
-  </div>
 
-<!-- End Document
-  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="bitcoindomination.js"></script>
+    <script src="memecoin-price.js"></script>
+    <script src="price-change-graph.js"></script>
+    <script src="x-engagement.js"></script>
+    <script src="engagement-vs-price.js"></script>
+
+    <script>
+        // Time selector functionality
+        document.querySelectorAll('.time-button').forEach(button => {
+            button.addEventListener('click', () => {
+                const parent = button.parentElement;
+                parent.querySelectorAll('.time-button').forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+                // This is now handled in memecoin-price.js
+            });
+        });
+    </script>
 </body>
 </html>
